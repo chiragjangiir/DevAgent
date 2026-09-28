@@ -548,19 +548,66 @@ class DevAgentSession:
                     render_diff(self._last_diff)
                 continue
 
-            # Phase 23 — /model: hot-swap provider/model for the rest of the session
+            # Phase 23 / Phase 28 — /model: hot-swap provider/model; /model alone shows picker
             if cmd.startswith("/model"):
                 parts = raw.split(None, 1)
                 _valid_providers = ("ollama", "anthropic", "openai", "gemini", "groq")
+
+                # Helper: fetch available models for the current Ollama endpoint.
+                def _get_ollama_models() -> list[str]:
+                    try:
+                        from devagent.core.llm import LLMClient as _LC
+                        return _LC(self._cfg.llm).list_ollama_models()
+                    except Exception:
+                        return []
+
                 if len(parts) < 2:
+                    # No arg — show current model + numbered list for Ollama endpoints.
                     self._console.print(
-                        f"[dim]Current model: [bold]{self._cfg.llm.provider}/{self._cfg.llm.model}[/bold]\n"
-                        f"Usage: /model <provider/model>  or  /model <model>  (keeps current provider)\n"
-                        f"Providers: {', '.join(_valid_providers)}[/dim]"
+                        f"[dim]Current: [bold]{self._cfg.llm.provider}/{self._cfg.llm.model}[/bold][/dim]"
                     )
+                    if self._cfg.llm.provider == "ollama":
+                        with self._console.status("[dim]Fetching available models...[/dim]"):
+                            _models = _get_ollama_models()
+                        if _models:
+                            self._console.print()
+                            for _i, _m in enumerate(_models, 1):
+                                marker = " [green]←[/green]" if _m == self._cfg.llm.model else ""
+                                self._console.print(f"  [cyan]{_i}[/cyan]. {_m}{marker}")
+                            self._console.print()
+                            self._console.print(
+                                "[dim]Switch with: [bold]/model <number>[/bold]  or  "
+                                "[bold]/model <name>[/bold][/dim]"
+                            )
+                        else:
+                            self._console.print(
+                                f"[dim]Usage: /model <provider/model>  or  /model <model>\n"
+                                f"Providers: {', '.join(_valid_providers)}[/dim]"
+                            )
+                    else:
+                        self._console.print(
+                            f"[dim]Usage: /model <provider/model>  or  /model <model>\n"
+                            f"Providers: {', '.join(_valid_providers)}[/dim]"
+                        )
                 else:
                     spec = parts[1].strip()
-                    if "/" in spec:
+
+                    # /model <N> — pick by index from the Ollama model list.
+                    if spec.isdigit() and self._cfg.llm.provider == "ollama":
+                        _models = _get_ollama_models()
+                        idx = int(spec) - 1
+                        if _models and 0 <= idx < len(_models):
+                            self._cfg.llm.model = _models[idx]
+                            self._console.print(
+                                f"[dim]Model switched to [bold]{self._cfg.llm.provider}/"
+                                f"{self._cfg.llm.model}[/bold][/dim]"
+                            )
+                        else:
+                            self._console.print(
+                                f"[yellow]No model at index {spec}. "
+                                f"Run [bold]/model[/bold] to see the list.[/yellow]"
+                            )
+                    elif "/" in spec:
                         new_provider, new_model = spec.split("/", 1)
                         new_provider = new_provider.strip().lower()
                         new_model = new_model.strip()

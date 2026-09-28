@@ -500,6 +500,18 @@ class LLMClient:
             result.append(ToolCallRequest(id=str(uuid.uuid4())[:8], name=name, args=args))
         return result
 
+    def list_ollama_models(self) -> list[str]:
+        """Return model names available at this Ollama endpoint (local or cloud).
+
+        Returns an empty list on any error so callers can degrade gracefully.
+        """
+        try:
+            client = self._ollama_client()
+            resp = client.list()
+            return [m.model for m in (resp.models or [])]
+        except Exception:
+            return []
+
     def _ollama_client(self) -> ollama.Client:
         """Return an ollama.Client configured for local or Ollama Cloud.
 

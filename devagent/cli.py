@@ -127,6 +127,17 @@ def _mask_key(key: str) -> str:
 _OLLAMA_CLOUD_HOST = "https://ollama.com"
 
 
+def _fetch_ollama_models(base_url: str, api_key: str = "") -> list[str]:
+    """Return model names from an Ollama endpoint; empty list on failure."""
+    try:
+        from devagent.core.config import LLMConfig as _LLMConfig
+        from devagent.core.llm import LLMClient as _LLMClient
+        cfg = _LLMConfig(provider="ollama", model="", base_url=base_url, api_key=api_key)
+        return _LLMClient(cfg).list_ollama_models()
+    except Exception:
+        return []
+
+
 def _validate_ollama(base_url: str, model: str) -> tuple[bool, str]:
     """Validate Ollama is running and the model is available.
 
@@ -312,9 +323,6 @@ def init() -> None:
         )
         if ollama_mode == "2":
             base_url = _OLLAMA_CLOUD_HOST
-            # Override the default model to a cloud-appropriate one.
-            if model == PROVIDER_DEFAULTS["ollama"]["model"]:
-                model = Prompt.ask("Model name", default="gpt-oss:20b")
             existing_key = existing.llm.api_key if (existing and existing.llm.provider == "ollama") else ""
             if existing_key:
                 console.print(f"  Current API key: {_mask_key(existing_key)}")
@@ -325,6 +333,36 @@ def init() -> None:
             )
             if not api_key:
                 console.print("[yellow]Warning: no API key entered — requests will be rejected by Ollama Cloud.[/yellow]")
+
+            # Fetch available cloud models and let the user pick by number.
+            console.print()
+            with console.status("[cyan]Fetching available Ollama Cloud models...[/cyan]"):
+                cloud_models = _fetch_ollama_models(_OLLAMA_CLOUD_HOST, api_key) if api_key else []
+
+            if cloud_models:
+                console.print(f"[dim]Found {len(cloud_models)} available models:[/dim]\n")
+                for i, m in enumerate(cloud_models, 1):
+                    console.print(f"  [bold cyan]{i}[/bold cyan]. {m}")
+                console.print()
+                default_pick = "1"
+                if existing and existing.llm.provider == "ollama" and existing.llm.model in cloud_models:
+                    default_pick = str(cloud_models.index(existing.llm.model) + 1)
+                pick = Prompt.ask(
+                    "Pick a model (number) or type a model name",
+                    default=default_pick,
+                )
+                if pick.isdigit() and 1 <= int(pick) <= len(cloud_models):
+                    model = cloud_models[int(pick) - 1]
+                else:
+                    model = pick.strip() or cloud_models[0]
+                console.print(f"[dim]Selected model: [bold]{model}[/bold][/dim]")
+            else:
+                # Fallback: manual entry when fetch fails or no key entered.
+                fallback_default = "gpt-oss:20b"
+                if existing and existing.llm.provider == "ollama" and existing.llm.model:
+                    fallback_default = existing.llm.model
+                console.print("[dim](Could not fetch model list — enter a model name manually)[/dim]")
+                model = Prompt.ask("Model name", default=fallback_default)
         else:
             default_url = PROVIDER_DEFAULTS["ollama"]["base_url"]
             if existing and existing.llm.base_url and existing.llm.base_url != _OLLAMA_CLOUD_HOST:
