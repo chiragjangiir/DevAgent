@@ -32,7 +32,7 @@ _REPL_COMMANDS = [
     "/explain", "/test", "/review", "/commit", "/summarize", "/deep-research", "/help",
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
-    "/fork", "/tasks", "/loop", "/rename",
+    "/fork", "/tasks", "/loop", "/rename", "/sessions",
 ]
 
 # ---------------------------------------------------------------------------
@@ -454,7 +454,7 @@ class DevAgentSession:
             from prompt_toolkit import PromptSession as _PSession
             from prompt_toolkit.completion import WordCompleter as _WC
             _completer = _WC(_REPL_COMMANDS, sentence=True)
-            _pt_session = _PSession(completer=_completer, complete_while_typing=False)
+            _pt_session = _PSession(completer=_completer, complete_while_typing=True)
             def _read_input() -> str:
                 return _pt_session.prompt("> ").strip()
         except Exception:
@@ -764,6 +764,28 @@ class DevAgentSession:
                     _new_name = _rename_parts[1].strip()
                     self._mgr.rename(self.session_id, _new_name)
                     self._console.print(f"[dim]Session renamed to [bold]{_new_name}[/bold][/dim]")
+                continue
+
+            # Phase 30 — /sessions: list sessions for this project
+            if cmd == "/sessions":
+                _proj_sessions = self._mgr.list_by_project(str(self._project_root), limit=20)
+                if not _proj_sessions:
+                    self._console.print("[dim]No sessions for this project yet.[/dim]")
+                else:
+                    lines = []
+                    for _s in _proj_sessions:
+                        _sid = _s["id"][:8]
+                        _title = _s.get("title") or ""
+                        _updated = _s.get("updated_at", "")[:16].replace("T", " ")
+                        _active = " [green]← current[/green]" if _s["id"] == self.session_id else ""
+                        label = f"[bold]{_title}[/bold]  [dim]{_sid}[/dim]" if _title else f"[dim]{_sid}[/dim]"
+                        lines.append(f"  {label}  [dim]{_updated}[/dim]{_active}")
+                    self._console.print(Panel(
+                        "\n".join(lines),
+                        title=f"Sessions — {self._project_root.name}",
+                        border_style="cyan",
+                    ))
+                    self._console.print("[dim]Resume with: devagent run --resume <name or id>[/dim]")
                 continue
 
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)

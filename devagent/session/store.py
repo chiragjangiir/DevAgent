@@ -177,6 +177,20 @@ def list_sessions(limit: int = 50, db_path: Path | None = None) -> list[dict]:
     return result
 
 
+def list_sessions_by_project(project: str, limit: int = 50, db_path: Path | None = None) -> list[dict]:
+    with _conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE project = ? ORDER BY updated_at DESC LIMIT ?",
+            (project, limit),
+        ).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["metadata"] = json.loads(d["metadata"])
+        result.append(d)
+    return result
+
+
 def delete_session(session_id: str, db_path: Path | None = None) -> None:
     with _conn(db_path) as conn:
         conn.execute("DELETE FROM events WHERE session_id = ?", (session_id,))

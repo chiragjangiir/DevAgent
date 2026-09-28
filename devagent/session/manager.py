@@ -58,6 +58,9 @@ class SessionManager:
     def list(self, limit: int = 50) -> list[dict]:
         return store.list_sessions(limit=limit, db_path=self.db_path)
 
+    def list_by_project(self, project: str, limit: int = 50) -> list[dict]:
+        return store.list_sessions_by_project(project, limit=limit, db_path=self.db_path)
+
     def delete(self, session_id: str) -> None:
         store.delete_session(session_id, db_path=self.db_path)
 
