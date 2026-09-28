@@ -773,10 +773,12 @@ class DevAgentSession:
                     self._console.print("[dim]No sessions for this project yet.[/dim]")
                 else:
                     lines = []
+                    import time as _time
                     for _s in _proj_sessions:
                         _sid = _s["id"][:8]
                         _title = _s.get("title") or ""
-                        _updated = _s.get("updated_at", "")[:16].replace("T", " ")
+                        _ts = _s.get("updated_at") or 0
+                        _updated = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(float(_ts)))
                         _active = " [green]← current[/green]" if _s["id"] == self.session_id else ""
                         label = f"[bold]{_title}[/bold]  [dim]{_sid}[/dim]" if _title else f"[dim]{_sid}[/dim]"
                         lines.append(f"  {label}  [dim]{_updated}[/dim]{_active}")

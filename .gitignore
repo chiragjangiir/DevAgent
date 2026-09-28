@@ -225,3 +225,5 @@ __marimo__/
 
 # Benchmark results (local only)
 benchmarks/results/
+
+errors.txt
