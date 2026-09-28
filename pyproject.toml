@@ -47,6 +47,8 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     # JSON Schema validation (--json-schema flag)
     "jsonschema>=4.0.0",
+    # REPL tab completion
+    "prompt_toolkit>=3.0.0",
 ]
 
 [project.urls]

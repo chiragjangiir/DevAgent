@@ -1622,6 +1622,9 @@ def run(
         "default", "--permission-mode",
         help="Permission shorthand: default|accept-edits|read-only|auto|yolo",
     ),
+    name: str | None = typer.Option(
+        None, "--name", "-n", help="Name this session (also used to resume by name)"
+    ),
 ) -> None:
     """Start an interactive agent session (the main DevAgent command)."""
     from devagent.agent.flows import DevAgentSession
@@ -1653,6 +1656,7 @@ def run(
             bare=bare,
             allow_tools=tools_list,
             permission_mode=permission_mode,
+            name=name,
         )
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -1664,7 +1668,8 @@ def run(
     if resume:
         console.print(f"[dim]Resuming session: {session.session_id[:8]}[/dim]")
     else:
-        console.print(f"[dim]New session: {session.session_id[:8]}[/dim]")
+        _name_suffix = f"  ({name})" if name else ""
+        console.print(f"[dim]New session: {session.session_id[:8]}{_name_suffix}[/dim]")
 
     session.print_header("DevAgent")
 

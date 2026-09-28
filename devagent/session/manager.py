@@ -67,6 +67,17 @@ class SessionManager:
     def set_title(self, session_id: str, title: str) -> None:
         store.update_session(session_id, title=title, db_path=self.db_path)
 
+    def find_by_name(self, name: str) -> dict | None:
+        """Find a session whose title matches name (case-insensitive), or None."""
+        name_lower = name.lower()
+        for s in self.list(limit=500):
+            if (s.get("title") or "").lower() == name_lower:
+                return s
+        return None
+
+    def rename(self, session_id: str, name: str) -> None:
+        self.set_title(session_id, name)
+
     # ------------------------------------------------------------------
     # Event log helpers
     # ------------------------------------------------------------------

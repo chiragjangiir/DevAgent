@@ -25,6 +25,17 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 
 # ---------------------------------------------------------------------------
+# REPL command list — used for tab completion (Phase 29)
+# ---------------------------------------------------------------------------
+
+_REPL_COMMANDS = [
+    "/explain", "/test", "/review", "/commit", "/summarize", "/deep-research", "/help",
+    "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
+    "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
+    "/fork", "/tasks", "/loop", "/rename",
+]
+
+# ---------------------------------------------------------------------------
 # URL parsers (issue, PR, CI run)
 # ---------------------------------------------------------------------------
 
@@ -122,6 +133,8 @@ class DevAgentSession:
         permission_mode: str = "default",
         # Phase 20 — per-agent persistent memory
         agent_name: str | None = None,
+        # Phase 29 — session name
+        name: str | None = None,
     ) -> None:
         from devagent.agent import permissions as perm_registry
         from devagent.agent.loop import AgentLoop
@@ -146,8 +159,9 @@ class DevAgentSession:
         # ── Session ──────────────────────────────────────────────────
         mgr = SessionManager()
         if resume_id:
-            sessions = mgr.list(limit=200)
-            match = next((s for s in sessions if s["id"].startswith(resume_id)), None)
+            match = mgr.find_by_name(resume_id) or next(
+                (s for s in mgr.list(limit=200) if s["id"].startswith(resume_id)), None
+            )
             if not match:
                 raise ValueError(f"Session not found: {resume_id}")
             session_id = match["id"]
@@ -156,6 +170,7 @@ class DevAgentSession:
                 project=str(self._project_root),
                 model=cfg.llm.model,
                 provider=cfg.llm.provider,
+                title=name or "",
             )
         self._mgr = mgr
         self.session_id = session_id
@@ -434,9 +449,21 @@ class DevAgentSession:
             self.run_message(first_message)
             self._title_set = True  # seeded message serves as title
 
+        # Phase 29 — tab completion via prompt_toolkit (falls back to plain input)
+        try:
+            from prompt_toolkit import PromptSession as _PSession
+            from prompt_toolkit.completion import WordCompleter as _WC
+            _completer = _WC(_REPL_COMMANDS, sentence=True)
+            _pt_session = _PSession(completer=_completer, complete_while_typing=False)
+            def _read_input() -> str:
+                return _pt_session.prompt("> ").strip()
+        except Exception:
+            def _read_input() -> str:
+                return self._console.input("[bold cyan]>[/bold cyan] ").strip()
+
         while True:
             try:
-                raw = self._console.input("[bold cyan]>[/bold cyan] ").strip()
+                raw = _read_input()
             except (EOFError, KeyboardInterrupt):
                 self._console.print("\n[dim]Session ended.[/dim]")
                 self._print_exit()
@@ -714,8 +741,10 @@ class DevAgentSession:
 
             # Phase 13 — /status: session summary
             if cmd == "/status":
+                _sess_row = self._mgr.get(self.session_id)
+                _sess_name = (_sess_row or {}).get("title", "") if _sess_row else ""
                 lines = [
-                    f"Session:  {self.session_id[:8]}",
+                    f"Session:  {self.session_id[:8]}" + (f"  ({_sess_name})" if _sess_name else ""),
                     f"Project:  {self._project_root}",
                     f"Model:    {self._cfg.llm.provider}/{self._cfg.llm.model}",
                     f"Effort:   {self._cfg.llm.effort}",
@@ -724,6 +753,17 @@ class DevAgentSession:
                     f"Security events: {len(self.security_log)}",
                 ]
                 self._console.print(Panel("\n".join(lines), title="/status", border_style="cyan"))
+                continue
+
+            # Phase 29 — /rename: give the current session a human-readable name
+            if cmd.startswith("/rename"):
+                _rename_parts = raw.split(None, 1)
+                if len(_rename_parts) < 2 or not _rename_parts[1].strip():
+                    self._console.print("[dim]Usage: /rename <name>[/dim]")
+                else:
+                    _new_name = _rename_parts[1].strip()
+                    self._mgr.rename(self.session_id, _new_name)
+                    self._console.print(f"[dim]Session renamed to [bold]{_new_name}[/bold][/dim]")
                 continue
 
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)
@@ -996,10 +1036,7 @@ class DevAgentSession:
                 f"  |  effort: {effort}{think_suffix}{bare_suffix}\n"
                 f"[dim]Project: {self._project_root}[/dim]\n"
                 f"[dim]Graph: {graph}  |  GitHub: {gh}  |  Router: {router}[/dim]\n"
-                "[dim]Skills: /explain  /test  /review  /commit  /summarize  /deep-research  /help[/dim]\n"
-                "[dim]Session: /status  /context  /clear  /rewind N  /permissions  /goal  /btw  /autocompact[/dim]\n"
-                "[dim]Agents:  @agent <task>  /fork <task>  /tasks  /loop [Ns] <cmd>  /loop off[/dim]\n"
-                "[dim]Other:   /model  /effort  /think  /memory  /tokens  /security  /undo  /diff  /exit  |  !<cmd>[/dim]",
+                "[dim]Type /help for commands — Tab to autocomplete[/dim]",
                 border_style="cyan",
             )
         )
