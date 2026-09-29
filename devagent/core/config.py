@@ -125,6 +125,11 @@ class CodePrismConfig(BaseModel):
     mcp_port: int = 8765
 
 
+class UIConfig(BaseModel):
+    """Terminal UI preferences (Phase 36)."""
+    theme: Literal["default", "dracula", "monokai", "solarized"] = "default"
+
+
 class DevAgentConfig(BaseModel):
     """Root configuration model for DevAgent."""
     llm: LLMConfig = LLMConfig()
@@ -141,6 +146,7 @@ class DevAgentConfig(BaseModel):
     security: SecurityConfig = SecurityConfig()
     budget: TokenBudgetConfig = TokenBudgetConfig()
     codeprism: CodePrismConfig = CodePrismConfig()
+    ui: UIConfig = UIConfig()
 
 
 def config_exists() -> bool:

@@ -1,13 +1,11 @@
 # Pending Tool Implementations
 
-## Vision / Computer Use
-`devagent/tools/vision_tools.py` exists but `screenshot()` is a no-op (`pass`).
-Plan:
-- Use `mss` or `Pillow` + `pyautogui` to capture a screen region
-- Encode as base64 PNG
-- Pass to LLM via the `image` content block (Anthropic / OpenAI vision APIs)
-- Add `click(x, y)`, `type_text(text)`, `scroll(direction)` using `pyautogui`
-- Gate behind a `[vision]` optional dependency group
+## ✅ Vision / Computer Use — SHIPPED (Phase 16, pre-existing)
+`devagent/tools/vision_tools.py` fully implemented:
+- `read_image` — reads any image file, encodes as base64, passes via `IMAGE_SENTINEL`
+- `take_screenshot` — auto-registered when `mss` or `Pillow.ImageGrab` is available
+- Both tools strip images for providers without vision support (Ollama, Gemini)
+- Tests in `tests/test_phase16.py`
 
 ## ✅ Jupyter Notebook tools — SHIPPED (Phase 33)
 `notebook_read`, `notebook_edit`, `notebook_run` fully implemented in

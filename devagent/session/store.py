@@ -250,6 +250,34 @@ def get_events(session_id: str, db_path: Path | None = None) -> list[dict]:
     return result
 
 
+def copy_session_events(
+    from_id: str,
+    to_id: str,
+    db_path: Path | None = None,
+) -> int:
+    """Copy all events from one session to another, re-sequencing from 0.
+
+    Returns the number of events copied.
+    """
+    events = get_events(from_id, db_path)
+    now = time.time()
+    with _conn(db_path) as conn:
+        for i, ev in enumerate(events):
+            conn.execute(
+                """INSERT INTO events
+                   (session_id, seq, role, content, tool_calls, tool_call_id, tool_name,
+                    tokens_in, tokens_out, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    to_id, i, ev["role"], ev["content"],
+                    json.dumps(ev.get("tool_calls") or []),
+                    ev.get("tool_call_id", ""), ev.get("tool_name", ""),
+                    ev.get("tokens_in", 0), ev.get("tokens_out", 0), now,
+                ),
+            )
+    return len(events)
+
+
 def trim_events(session_id: str, turns_to_remove: int, db_path: Path | None = None) -> int:
     """Delete the last N user-turn groups from the event log.
 

@@ -33,8 +33,29 @@ _REPL_COMMANDS = [
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
-    "/fast", "/compact", "/recap",
+    "/fast", "/compact", "/recap", "/branch", "/theme",
 ]
+
+# Phase 36 — prompt_toolkit colour themes
+# Values are dicts passed to Style.from_dict(); None means use the default style.
+_THEME_STYLES: dict[str, dict[str, str] | None] = {
+    "default": None,
+    "dracula": {
+        "completion-menu.completion": "bg:#282a36 #f8f8f2",
+        "completion-menu.completion.current": "bg:#44475a #f8f8f2",
+        "prompt": "#50fa7b bold",
+    },
+    "monokai": {
+        "completion-menu.completion": "bg:#272822 #f8f8f2",
+        "completion-menu.completion.current": "bg:#49483e #f8f8f2",
+        "prompt": "#a6e22e bold",
+    },
+    "solarized": {
+        "completion-menu.completion": "bg:#002b36 #839496",
+        "completion-menu.completion.current": "bg:#073642 #93a1a1",
+        "prompt": "#268bd2 bold",
+    },
+}
 
 # ---------------------------------------------------------------------------
 # URL parsers (issue, PR, CI run)
@@ -456,13 +477,23 @@ class DevAgentSession:
             self._title_set = True  # seeded message serves as title
 
         # Phase 29 — tab completion via prompt_toolkit (falls back to plain input)
+        # Phase 36 — theme support: _pt_holder[0] is replaced by /theme live
+        _pt_holder: list = [None]
         try:
             from prompt_toolkit import PromptSession as _PSession
             from prompt_toolkit.completion import WordCompleter as _WC
-            _completer = _WC(_REPL_COMMANDS, sentence=True)
-            _pt_session = _PSession(completer=_completer, complete_while_typing=True)
+            from prompt_toolkit.styles import Style as _PTStyle
+
+            def _make_pt_session(theme_name: str):
+                _style_dict = _THEME_STYLES.get(theme_name)
+                _style = _PTStyle.from_dict(_style_dict) if _style_dict else None
+                _completer = _WC(_REPL_COMMANDS, sentence=True)
+                return _PSession(completer=_completer, complete_while_typing=True, style=_style)
+
+            _pt_holder[0] = _make_pt_session(getattr(getattr(self._cfg, "ui", None), "theme", "default"))
+
             def _read_input() -> str:
-                return _pt_session.prompt("> ").strip()
+                return _pt_holder[0].prompt("> ").strip()
         except Exception:
             def _read_input() -> str:
                 return self._console.input("[bold cyan]>[/bold cyan] ").strip()
@@ -884,6 +915,49 @@ class DevAgentSession:
                     self._console.print(_Rule(style="dim"))
                 continue
 
+            # Phase 36 — /branch: snapshot current session to a new branch session
+            if cmd == "/branch":
+                from devagent.session import store as _store
+                _branch_id = self._mgr.new(
+                    project=str(self._project_root),
+                    model=self._cfg.llm.model,
+                    provider=self._cfg.llm.provider,
+                    title=f"Branch of {self.session_id[:8]}",
+                )
+                _copied = _store.copy_session_events(self.session_id, _branch_id)
+                self._console.print(
+                    f"[dim]Branch created: [bold]{_branch_id[:8]}[/bold]  "
+                    f"({_copied} events copied)[/dim]"
+                )
+                self._console.print(
+                    f"[dim]Resume it with: devagent run --resume {_branch_id[:8]}[/dim]"
+                )
+                continue
+
+            # Phase 36 — /theme [<name>]: list or switch colour theme
+            if cmd.startswith("/theme"):
+                _theme_arg = raw.split(None, 1)[1].strip().lower() if len(raw.split(None, 1)) > 1 else ""
+                _valid = list(_THEME_STYLES.keys())
+                if not _theme_arg or _theme_arg == "list":
+                    self._console.print(
+                        f"[dim]Themes: {', '.join(_valid)}  |  current: "
+                        f"{getattr(getattr(self._cfg, 'ui', None), 'theme', 'default')}[/dim]"
+                    )
+                elif _theme_arg not in _THEME_STYLES:
+                    self._console.print(
+                        f"[yellow]Unknown theme '{_theme_arg}'. "
+                        f"Available: {', '.join(_valid)}[/yellow]"
+                    )
+                else:
+                    self._cfg.ui.theme = _theme_arg
+                    if _pt_holder[0] is not None:
+                        try:
+                            _pt_holder[0] = _make_pt_session(_theme_arg)
+                        except Exception:
+                            pass
+                    self._console.print(f"[dim]Theme: [bold]{_theme_arg}[/bold][/dim]")
+                continue
+
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)
             if cmd == "/clear":
                 new_sid = self._mgr.new(
@@ -1107,6 +1181,8 @@ class DevAgentSession:
                     self._console.print("[dim]  /fast [off]  — switch to cheap tier; /fast off to restore[/dim]")
                     self._console.print("[dim]  /compact [topic]  — compress session history (keep topic in detail)[/dim]")
                     self._console.print("[dim]  /recap [N]  — show last N messages to re-orient (default: 5)[/dim]")
+                    self._console.print("[dim]  /branch  — snapshot this session to a new branch (resumable)[/dim]")
+                    self._console.print("[dim]  /theme [<name>]  — list themes or switch: default|dracula|monokai|solarized[/dim]")
                     self._console.print("[dim]  /rename <name>  — rename this session[/dim]")
                     self._console.print("[dim]  /sessions  — list sessions in this project[/dim]")
                     self._console.print("[dim]  !<command>  — run a shell command in the project root[/dim]")
