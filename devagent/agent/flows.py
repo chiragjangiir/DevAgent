@@ -33,6 +33,7 @@ _REPL_COMMANDS = [
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
+    "/fast", "/compact",
 ]
 
 # ---------------------------------------------------------------------------
@@ -338,6 +339,11 @@ class DevAgentSession:
         self._title_set = resume_id is not None
         self._plan_mode = plan_mode
         self._llm = LLMClient(cfg.llm)  # kept for plan generation
+
+        # Phase 32 — /fast mode state
+        self._fast_mode = False
+        self._pre_fast_model: str = cfg.llm.model
+        self._pre_fast_provider: str = cfg.llm.provider
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -788,6 +794,59 @@ class DevAgentSession:
                         border_style="cyan",
                     ))
                     self._console.print("[dim]Resume with: devagent run --resume <name or id>[/dim]")
+                continue
+
+            # Phase 32 — /fast [off]: toggle cheap-tier model for the session
+            if cmd.startswith("/fast"):
+                _fast_arg = raw.split(None, 1)[1].strip().lower() if len(raw.split(None, 1)) > 1 else ""
+                if _fast_arg == "off":
+                    if self._fast_mode:
+                        self._cfg.llm.provider = self._pre_fast_provider
+                        self._cfg.llm.model = self._pre_fast_model
+                        self._fast_mode = False
+                        self._console.print(
+                            f"[dim]Fast mode off — restored "
+                            f"[bold]{self._cfg.llm.provider}/{self._cfg.llm.model}[/bold][/dim]"
+                        )
+                    else:
+                        self._console.print("[dim]Fast mode is already off.[/dim]")
+                else:
+                    if not self._fast_mode:
+                        self._pre_fast_provider = self._cfg.llm.provider
+                        self._pre_fast_model = self._cfg.llm.model
+                    cheap = self._cfg.router.cheap
+                    self._cfg.llm.provider = cheap.get("provider", self._cfg.llm.provider)
+                    self._cfg.llm.model = cheap.get("model", self._cfg.llm.model)
+                    self._fast_mode = True
+                    self._console.print(
+                        f"[dim]Fast mode on — using "
+                        f"[bold]{self._cfg.llm.provider}/{self._cfg.llm.model}[/bold]  "
+                        f"(type [bold]/fast off[/bold] to restore)[/dim]"
+                    )
+                continue
+
+            # Phase 32 — /compact [focus on X]: force-compress session history now
+            if cmd.startswith("/compact"):
+                _focus = raw.split(None, 1)[1].strip() if len(raw.split(None, 1)) > 1 else None
+                from devagent.core.llm import LLMClient as _LC
+                from devagent.session.compressor import compress_session as _cs
+                _comp_llm = _LC(self._cfg.llm)
+                keep_n = self._cfg.session.compression_window_size
+                with self._console.status("[cyan]Compressing session history...[/cyan]"):
+                    _result = _cs(
+                        self.session_id,
+                        _comp_llm,
+                        keep_last_n=keep_n,
+                        focus=_focus,
+                    )
+                if _result is None:
+                    self._console.print("[dim]Nothing to compress yet (history is short).[/dim]")
+                else:
+                    _focus_note = f"  Focus: {_focus}" if _focus else ""
+                    self._console.print(
+                        f"[dim]Compressed {_result.events_compressed} events "
+                        f"(~{_result.tokens_saved} tokens saved).{_focus_note}[/dim]"
+                    )
                 continue
 
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)

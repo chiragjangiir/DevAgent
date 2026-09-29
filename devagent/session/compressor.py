@@ -146,8 +146,12 @@ def compress_session(
     llm: LLMClient,
     keep_last_n: int = 20,
     db_path: Path | None = None,
+    focus: str | None = None,
 ) -> CompressionResult | None:
     """Summarise events older than the hot window and persist the result.
+
+    focus: optional topic hint — the summariser is asked to preserve content
+    related to this topic in extra detail.
 
     Returns None if there is nothing old enough to compress.
     """
@@ -164,9 +168,14 @@ def compress_session(
     tokens_before = _estimate_tokens(old_text)
 
     # Build the LLM prompt
+    focus_line = (
+        f"\nPay special attention to content related to: {focus}\n"
+        "Preserve that content in extra detail even if it would normally be abbreviated."
+        if focus else ""
+    )
     user_content = (
         "Summarise the following conversation events from an AI coding session.\n"
-        "Follow your summarisation rules exactly.\n\n"
+        f"Follow your summarisation rules exactly.{focus_line}\n\n"
         "--- EVENTS TO SUMMARISE ---\n"
         f"{old_text}\n"
         "--- END ---"

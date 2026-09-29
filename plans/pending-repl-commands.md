@@ -1,13 +1,12 @@
 # Pending REPL Commands
 
-## /compact [focus on X]
+## ✅ /compact [focus on X] — SHIPPED Phase 32
 Targeted context compaction: compress history but keep content related to a given topic.
-Current state: only auto-compact exists (compresses blindly when threshold exceeded).
-Implementation: extend `session/compressor.py` to accept a `focus` hint injected into the summary prompt.
+`compress_session()` in `session/compressor.py` now accepts a `focus` param injected into the summary prompt.
 
-## /fast
-Toggle fast mode (analogous to Claude Code's /fast — use a cheaper/faster model tier for the current session).
-Implementation: swap `cfg.llm` to the `cheap` router tier; `/fast off` restores original.
+## ✅ /fast [off] — SHIPPED Phase 32
+Toggle fast mode — swaps to the `cheap` router tier model; `/fast off` restores the original provider/model.
+State tracked in `_fast_mode`, `_pre_fast_provider`, `_pre_fast_model` on `DevAgentSession`.
 
 ## /batch
 Apply a change across multiple files in parallel (fan-out sub-agents per file).
