@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devagent"
-version = "1.3.0"
+version = "1.4.0"
 description = "AI coding agent harness — chat-session based, GitHub-native, offline-first"
 requires-python = ">=3.12"
 readme = "README.md"

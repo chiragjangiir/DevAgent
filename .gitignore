@@ -1,8 +1,8 @@
 # Claude Code project instructions (local only — not for version control)
 CLAUDE.md
 
-# All internal planning, research, and spec docs live in plans/
-plans/
+# Local scratch planning docs (not committed) live in plans/scratch/
+plans/scratch/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

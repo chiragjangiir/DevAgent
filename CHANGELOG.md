@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-29
+
+### Added
+
+**Ollama Cloud auth (Phase 27)**
+- `devagent init` now accepts an Ollama Cloud API key and `base_url`; auth is passed as `Authorization: Bearer <key>` header via `_ollama_client()` helper
+- `_validate_ollama()` skips the local HTTP check for the cloud endpoint and returns a fast confirmation
+- Cloud config fields (`base_url`, `api_key`) survive config save/reload
+
+**Ollama Cloud model picker (Phase 28)**
+- `list_ollama_models()` on `LLMClient` — fetches available models from the configured endpoint (local or cloud), returns `[]` on failure
+- `devagent init` Cloud section shows a numbered list of available models; pick by number or type a name
+- `/model` with no argument now shows a numbered list of available Ollama models; current model is marked with `←`
+- `/model <N>` switches to the Nth model by index
+
+**REPL tab completion and session naming (Phase 29)**
+- `prompt_toolkit` word completer for all `/` commands — press Tab to complete
+- `devagent run --name <name>` — start a named session
+- `--resume <name>` — resume by human-readable name (falls back to ID prefix)
+- `/rename <name>` in REPL — rename the current session
+- Intro banner trimmed to one hint line; command list is discoverable via Tab
+
+**Auto-suggest and /sessions (Phase 30)**
+- `complete_while_typing=True` — suggestions appear as you type without pressing Tab
+- `/sessions` REPL command — lists all sessions for the current project with name, short ID, last-updated time, and current-session marker
+- `SessionManager.list_by_project()` — filters session store by project path
+
+### Fixed
+- `/sessions` crash when `updated_at` was a Unix float instead of a string
+- Doubled API key in config when `devagent init` was run twice
+
+### Changed
+- `devagent chat` is now fully functional — loads the selected `.md` report into a DevAgentSession REPL so users can ask questions interactively without re-running `devagent analyze`
+
+---
+
 ## [1.3.0] - 2026-09-25
 
 ### Added

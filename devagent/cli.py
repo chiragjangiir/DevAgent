@@ -1195,21 +1195,21 @@ def chat(
             console.print("[red]Invalid selection.[/red]")
             raise typer.Exit(1)
 
-    # Note: the .md file doesn't have the raw JSON natively. We need to parse it or assume
-    # we can rebuild the GapReport. Wait, the F2 spec says:
-    # "They can also start a chat session against a previously saved report"
-    # But GapReport is a Pydantic object. If we only save .md, we can't reconstruct the full object easily.
-    # Actually, we should probably run the chat session. Let's see if the spec meant we load the JSON.
-    # Ah, the spec says: "The chat session has access to the full GapReport object as its context."
-    # If the user runs `devagent analyze --chat`, the object is in memory.
-    # If they run `devagent chat --report X`, we need the JSON.
-    # In `analyze`, we output `.md`. The spec didn't mention saving `.json` automatically.
-    # I'll inform the user that `chat` command loading from disk requires JSON files if they aren't saved.
-    # Actually, wait, let me just print a warning for now and ask the user.
-    # I will just implement the `analyze --chat` flow perfectly first.
-    
-    console.print("[yellow]Note: standalone `chat` command currently requires re-running analysis if JSON reports are not saved. Use `devagent analyze --issue X --chat` instead for now.[/yellow]")
-    raise typer.Exit(1)
+    report_content = target_file.read_text(encoding="utf-8")
+    console.print(f"\n[dim]Loaded report: [bold]{target_file.stem}[/bold][/dim]")
+    console.print("[dim]Starting chat session — ask anything about this report.[/dim]\n")
+
+    from devagent.agent.flows import DevAgentSession
+    from devagent.core.config import load_config
+
+    cfg = load_config()
+    session = DevAgentSession(cfg, project_root=str(project_root))
+    seed = (
+        f"I have loaded the following gap analysis report for your reference:\n\n"
+        f"<report>\n{report_content}\n</report>\n\n"
+        f"Please confirm you have read it and are ready to answer questions about it."
+    )
+    session.interactive_repl(first_message=seed)
 
 
 @app.command()
