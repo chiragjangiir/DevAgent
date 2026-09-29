@@ -9,9 +9,9 @@ Plan:
 - Add `click(x, y)`, `type_text(text)`, `scroll(direction)` using `pyautogui`
 - Gate behind a `[vision]` optional dependency group
 
-## Jupyter Notebook tools
-Not present. Plan:
-- `notebook_read(path)` — read `.ipynb`, return cells as formatted text
-- `notebook_edit(path, cell_index, new_source)` — patch a cell and save
-- Use `nbformat` library (add as optional dep)
-- Register in `build_registry()` alongside file tools
+## ✅ Jupyter Notebook tools — SHIPPED (Phase 33)
+`notebook_read`, `notebook_edit`, `notebook_run` fully implemented in
+`devagent/tools/notebook_tools.py`; auto-registered when `nbformat` is
+importable (in `[notebooks]` optional dep group). 14 tests in
+`tests/test_notebook_tools.py`. `warnings.catch_warnings` suppresses
+nbformat's `MissingIDFieldWarning` on older-format notebooks.

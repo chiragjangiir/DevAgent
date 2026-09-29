@@ -7,6 +7,7 @@ Only registered when `nbformat` is importable. `notebook_run` requires
 from __future__ import annotations
 
 import subprocess
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,9 @@ def register_notebook_tools(registry, project_root: str) -> None:
         if not target.exists():
             return f"[error] Notebook not found: {path}"
         try:
-            nb = nbformat.read(str(target), as_version=4)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                nb = nbformat.read(str(target), as_version=4)
         except Exception as exc:
             return f"[error] Could not parse notebook: {exc}"
 
@@ -79,7 +82,9 @@ def register_notebook_tools(registry, project_root: str) -> None:
         if not target.exists():
             return f"[error] Notebook not found: {path}"
         try:
-            nb = nbformat.read(str(target), as_version=4)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                nb = nbformat.read(str(target), as_version=4)
         except Exception as exc:
             return f"[error] Could not parse notebook: {exc}"
         idx = int(cell_index)
