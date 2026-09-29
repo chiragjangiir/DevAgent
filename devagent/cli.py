@@ -3255,5 +3255,129 @@ def plugins_install(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Phase 35 — devagent mcp: manage .mcp.json project server config
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(name="mcp", help="Manage MCP server configuration.", add_completion=False)
+app.add_typer(mcp_app, name="mcp")
+
+
+@mcp_app.command("ls")
+def mcp_ls(
+    project: str | None = typer.Option(None, "--project", "-p", help="Project path"),
+) -> None:
+    """List MCP servers declared in .mcp.json for the current project."""
+    from devagent.core.project import detect_project_root
+    from devagent.mcp.project_config import find_mcp_json, load_mcp_json
+
+    project_root, _ = detect_project_root(Path(project) if project else None)
+    entries = load_mcp_json(project_root)
+
+    cfg_path = find_mcp_json(project_root)
+    if cfg_path:
+        console.print(f"[dim]Config: {cfg_path}[/dim]\n")
+    else:
+        console.print(f"[dim]No .mcp.json found in {project_root}[/dim]")
+        console.print("[dim]Create one with: devagent mcp add <name> <command> [args...][/dim]")
+        return
+
+    if not entries:
+        console.print("[dim]No servers declared in .mcp.json[/dim]")
+        return
+
+    table = Table(title="Project MCP Servers", show_lines=False)
+    table.add_column("Name", style="bold cyan")
+    table.add_column("Command", style="green")
+    table.add_column("Args")
+    table.add_column("Env keys")
+
+    for e in entries:
+        args_str = " ".join(e.args) if e.args else "—"
+        env_str = ", ".join(e.env.keys()) if e.env else "—"
+        table.add_row(e.name, e.command, args_str, env_str)
+
+    console.print(table)
+
+
+@mcp_app.command("add")
+def mcp_add(
+    name: str = typer.Argument(..., help="Server name (unique key in .mcp.json)"),
+    command: str = typer.Argument(..., help="Command to launch the server (e.g. python, npx)"),
+    args: list[str] = typer.Argument(default=None, help="Arguments to pass to the command"),  # noqa: B008
+    env: list[str] = typer.Option(  # noqa: B008
+        [], "--env", "-e", help="Env var to pass: KEY=VALUE (repeatable)"
+    ),
+    project: str | None = typer.Option(None, "--project", "-p", help="Project path"),
+) -> None:
+    """Add or update a server entry in .mcp.json.
+
+    Example:
+      devagent mcp add my-tool python -m my_tool.server
+      devagent mcp add brave npx -y @modelcontextprotocol/server-brave-search --env BRAVE_API_KEY=xxx
+    """
+    from devagent.core.project import detect_project_root
+    from devagent.mcp.project_config import MCPServerEntry, save_mcp_json
+
+    project_root, _ = detect_project_root(Path(project) if project else None)
+
+    # Parse --env KEY=VALUE pairs
+    env_dict: dict[str, str] = {}
+    for pair in env:
+        if "=" in pair:
+            k, v = pair.split("=", 1)
+            env_dict[k.strip()] = v.strip()
+        else:
+            console.print(f"[yellow]Ignored malformed env var (expected KEY=VALUE): {pair}[/yellow]")
+
+    entry = MCPServerEntry(
+        name=name,
+        command=command,
+        args=list(args or []),
+        env=env_dict,
+    )
+    path = save_mcp_json(project_root, [entry])
+    console.print(f"[green]Added server [bold]{name}[/bold] to {path}[/green]")
+    console.print(f"[dim]  command: {command} {' '.join(entry.args)}[/dim]")
+    if env_dict:
+        console.print(f"[dim]  env: {', '.join(env_dict.keys())}[/dim]")
+
+
+@mcp_app.command("remove")
+def mcp_remove(
+    name: str = typer.Argument(..., help="Server name to remove"),
+    project: str | None = typer.Option(None, "--project", "-p", help="Project path"),
+) -> None:
+    """Remove a server entry from .mcp.json."""
+    import json as _json
+
+    from devagent.core.project import detect_project_root
+    from devagent.mcp.project_config import _CANDIDATES
+
+    project_root, _ = detect_project_root(Path(project) if project else None)
+    root = Path(project_root)
+
+    for candidate in _CANDIDATES:
+        path = root / candidate
+        if path.exists():
+            try:
+                data = _json.loads(path.read_text(encoding="utf-8"))
+            except (_json.JSONDecodeError, OSError):
+                console.print(f"[red]Could not parse {path}[/red]")
+                raise typer.Exit(1)
+            servers = data.get("mcpServers") or {}
+            if name not in servers:
+                console.print(f"[yellow]Server '{name}' not found in {path}[/yellow]")
+                raise typer.Exit(1)
+            del servers[name]
+            data["mcpServers"] = servers
+            path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            console.print(f"[green]Removed server [bold]{name}[/bold] from {path}[/green]")
+            return
+
+    console.print(f"[yellow]No .mcp.json found in {project_root}[/yellow]")
+    raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

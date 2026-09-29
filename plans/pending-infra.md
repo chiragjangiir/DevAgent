@@ -12,12 +12,11 @@ Plan:
 - Implement PKCE flow: open browser, capture redirect, exchange code for token
 - Cache token in platform keyring; refresh on expiry
 
-## .mcp.json project file
-Standard MCP project config file (analogous to Claude Code's `.mcp.json`).
-Plan:
-- `load_mcp_json(project_root)` — parse `.mcp.json` or `.devagent/mcp.json`
-- Merge with global MCP config from `~/.config/devagent/mcp.json`
-- Auto-start declared servers on `devagent run`
+## ✅ .mcp.json project file — SHIPPED (Phase 35)
+`devagent/mcp/project_config.py` — `load_mcp_json()`, `find_mcp_json()`, `save_mcp_json()`.
+Searches `.mcp.json` then `.devagent/mcp.json`. Schema: `{"mcpServers": {"name": {...}}}`.
+CLI: `devagent mcp ls` / `devagent mcp add` / `devagent mcp remove`.
+20 tests in `tests/test_mcp_project_config.py`.
 
 ## WebSocket MCP transport
 Currently only stdio transport is supported.
