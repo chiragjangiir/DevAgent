@@ -33,7 +33,7 @@ _REPL_COMMANDS = [
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
-    "/fast", "/compact",
+    "/fast", "/compact", "/recap",
 ]
 
 # ---------------------------------------------------------------------------
@@ -849,6 +849,41 @@ class DevAgentSession:
                     )
                 continue
 
+            # Phase 34 — /recap [N]: print last N turns so user can re-orient after a long break
+            if cmd.startswith("/recap"):
+                _recap_parts = raw.split(None, 1)
+                _recap_n = 5
+                if len(_recap_parts) > 1:
+                    try:
+                        _recap_n = max(1, int(_recap_parts[1].strip()))
+                    except ValueError:
+                        pass
+                from rich.rule import Rule as _Rule
+
+                from devagent.session import store as _store
+                _revents = _store.get_events(self.session_id)
+                _visible = [
+                    e for e in _revents
+                    if e["role"] in ("user", "assistant") and (e.get("content") or "").strip()
+                ]
+                _to_show = _visible[-_recap_n:]
+                if not _to_show:
+                    self._console.print("[dim]No history yet.[/dim]")
+                else:
+                    self._console.print(_Rule(f"[dim]Last {len(_to_show)} messages[/dim]", style="dim"))
+                    for _rev in _to_show:
+                        _label = (
+                            "[bold cyan]You[/bold cyan]"
+                            if _rev["role"] == "user"
+                            else "[bold green]Agent[/bold green]"
+                        )
+                        _txt = (_rev.get("content") or "").strip()
+                        if len(_txt) > 500:
+                            _txt = _txt[:500] + "…"
+                        self._console.print(f"{_label}: {_txt}")
+                    self._console.print(_Rule(style="dim"))
+                continue
+
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)
             if cmd == "/clear":
                 new_sid = self._mgr.new(
@@ -1069,6 +1104,11 @@ class DevAgentSession:
                     self._console.print("[dim]  /model <provider/model>  — hot-swap LLM for the rest of the session[/dim]")
                     self._console.print("[dim]  /effort low|medium|high|xhigh|max  — change effort level[/dim]")
                     self._console.print("[dim]  /think on|off  — toggle extended thinking (Anthropic)[/dim]")
+                    self._console.print("[dim]  /fast [off]  — switch to cheap tier; /fast off to restore[/dim]")
+                    self._console.print("[dim]  /compact [topic]  — compress session history (keep topic in detail)[/dim]")
+                    self._console.print("[dim]  /recap [N]  — show last N messages to re-orient (default: 5)[/dim]")
+                    self._console.print("[dim]  /rename <name>  — rename this session[/dim]")
+                    self._console.print("[dim]  /sessions  — list sessions in this project[/dim]")
                     self._console.print("[dim]  !<command>  — run a shell command in the project root[/dim]")
                     continue
 

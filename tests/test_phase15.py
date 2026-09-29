@@ -343,6 +343,68 @@ class TestStreamJsonEvents:
 
 
 # ---------------------------------------------------------------------------
+# Phase 34 — emit_json (single JSON object output)
+# ---------------------------------------------------------------------------
+
+class TestEmitJson:
+    def test_emits_single_json_object(self, capsys) -> None:
+        import json
+
+        from devagent.agent.loop import FinalAnswerEvent, ThinkingEvent
+        from devagent.output.streaming import emit_json
+
+        events = [ThinkingEvent(text="thinking"), FinalAnswerEvent(text="done")]
+        result = emit_json(iter(events))
+        captured = capsys.readouterr().out
+        # Only one line emitted (single JSON object)
+        lines = [l for l in captured.strip().split("\n") if l]
+        assert len(lines) == 1
+        obj = json.loads(lines[0])
+        assert "events" in obj
+        assert obj["final_text"] == "done"
+        assert result == "done"
+
+    def test_events_array_contains_all_types(self, capsys) -> None:
+        import json
+
+        from devagent.agent.loop import (
+            ErrorEvent,
+            FinalAnswerEvent,
+            ThinkingEvent,
+            ToolCallEvent,
+            ToolResultEvent,
+        )
+        from devagent.output.streaming import emit_json
+
+        events = [
+            ThinkingEvent(text="t"),
+            ToolCallEvent(id="1", name="read_file", args={"path": "x.py"}),
+            ToolResultEvent(id="1", name="read_file", result="content", success=True),
+            FinalAnswerEvent(text="answer"),
+            ErrorEvent(message="oops"),
+        ]
+        emit_json(iter(events))
+        obj = json.loads(capsys.readouterr().out.strip())
+        types = [e["type"] for e in obj["events"]]
+        assert "thinking" in types
+        assert "tool_call" in types
+        assert "tool_result" in types
+        assert "final" in types
+        assert "error" in types
+
+    def test_empty_events_returns_empty_final_text(self, capsys) -> None:
+        import json
+
+        from devagent.output.streaming import emit_json
+
+        result = emit_json(iter([]))
+        obj = json.loads(capsys.readouterr().out.strip())
+        assert obj["events"] == []
+        assert obj["final_text"] == ""
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
 # 15.1 /effort REPL command (unit test of the cfg mutation)
 # ---------------------------------------------------------------------------
 

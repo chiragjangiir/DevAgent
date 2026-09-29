@@ -1720,7 +1720,7 @@ def do(
         None, "--allow-tools", help="Comma-separated tool names to auto-approve"
     ),
     output_format: str = typer.Option(
-        "rich", "--output-format", help="Output format: rich (default) or stream-json"
+        "rich", "--output-format", help="Output format: rich (default), json, or stream-json"
     ),
     permission_mode: str = typer.Option(
         "default", "--permission-mode",
@@ -1737,7 +1737,7 @@ def do(
     from devagent.agent.flows import DevAgentSession
     from devagent.agent.loop import ErrorEvent, FinalAnswerEvent
     from devagent.core.project import detect_project_root
-    from devagent.output.streaming import render_events, stream_json_events
+    from devagent.output.streaming import emit_json, render_events, stream_json_events
 
     if not config_exists():
         console.print("[red]No config found. Run [bold]devagent init[/bold] first.[/red]")
@@ -1795,10 +1795,15 @@ def do(
     # First attempt
     events = list(session._loop.run(task))
 
-    if output_format == "stream-json":
-        stream_json_events(iter(events))
-    else:
-        render_events(iter(events))
+    def _render(evs: list) -> None:
+        if output_format == "stream-json":
+            stream_json_events(iter(evs))
+        elif output_format == "json":
+            emit_json(iter(evs))
+        else:
+            render_events(iter(evs))
+
+    _render(events)
 
     # JSON Schema validation + one retry
     if schema_dict is not None:
@@ -1822,10 +1827,7 @@ def do(
                 _handle_error(exc)
                 raise typer.Exit(2)
 
-            if output_format == "stream-json":
-                stream_json_events(iter(retry_events))
-            else:
-                render_events(iter(retry_events))
+            _render(retry_events)
 
             events = retry_events
             retry_text = _extract_final_text(retry_events)

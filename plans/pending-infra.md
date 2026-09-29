@@ -1,11 +1,9 @@
 # Pending Infrastructure
 
-## --output-format json / stream-json
-CLI flag for `devagent run` / `devagent do` to emit machine-readable output for CI pipelines.
-Plan:
-- `--output-format json` — collect all events, emit a single JSON object at exit
-- `--output-format stream-json` — emit one JSON line per event (NDJSON)
-- Add `JsonEventRenderer` and `StreamJsonEventRenderer` alongside the existing Rich renderer
+## ✅ --output-format json / stream-json — SHIPPED (Phase 34)
+`devagent do --output-format json` — collect all events, emit a single JSON object at exit.
+`devagent do --output-format stream-json` — one JSON line per event (NDJSON).
+Both implemented in `devagent/output/streaming.py` (`emit_json`, `stream_json_events`).
 
 ## OAuth 2.0 MCP auth
 MCP servers that require OAuth (e.g. cloud APIs) currently need manual token injection.

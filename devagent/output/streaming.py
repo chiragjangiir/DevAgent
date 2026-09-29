@@ -66,6 +66,40 @@ def render_events(
     return final_text
 
 
+def emit_json(
+    events: Generator[AgentEvent, None, None],
+) -> str:
+    """Collect all agent events and emit a single JSON object to stdout.
+
+    Useful for CI pipelines that need to parse the whole run at once.
+    Returns the final text answer (or empty string on error).
+    """
+    import sys
+
+    collected: list[dict] = []
+    final_text = ""
+    for event in events:
+        if isinstance(event, ThinkingEvent):
+            collected.append({"type": "thinking", "text": event.text})
+        elif isinstance(event, ToolCallEvent):
+            collected.append({"type": "tool_call", "id": event.id, "name": event.name, "args": event.args})
+        elif isinstance(event, ToolResultEvent):
+            collected.append({"type": "tool_result", "id": event.id, "name": event.name,
+                              "result": event.result, "success": event.success})
+        elif isinstance(event, FinalAnswerEvent):
+            collected.append({"type": "final", "text": event.text})
+            final_text = event.text
+        elif isinstance(event, BudgetWarningEvent):
+            collected.append({"type": "budget_warning", "used": event.used, "remaining": event.remaining})
+        elif isinstance(event, StatusEvent):
+            collected.append({"type": "status", "status_line": event.status_line, "iteration": event.iteration})
+        elif isinstance(event, ErrorEvent):
+            collected.append({"type": "error", "message": event.message})
+    sys.stdout.write(json.dumps({"events": collected, "final_text": final_text}) + "\n")
+    sys.stdout.flush()
+    return final_text
+
+
 def stream_json_events(
     events: Generator[AgentEvent, None, None],
 ) -> str:

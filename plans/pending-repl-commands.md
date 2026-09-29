@@ -20,9 +20,9 @@ Implementation: duplicate session events into a new session_id; `/branch list` s
 Detach the current session as a background daemon (keep running after terminal closes).
 Implementation: serialize session state; launch a detached subprocess; `/status` polls it via IPC.
 
-## /recap
-Re-read key files to warm the context cache after a long idle period.
-Implementation: re-inject the last N tool results and key file reads as synthetic context.
+## ✅ /recap [N] — SHIPPED Phase 34
+Print last N messages (default 5) from session history so the user can re-orient after a long
+break. Reads events from DB, filters to user/assistant content, renders with ruler separators.
 
 ## /theme / /keybindings
 UI customisation — colour themes and key rebindings for prompt_toolkit.
