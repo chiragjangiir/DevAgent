@@ -3,8 +3,8 @@
 > AI coding agent harness. Chat-session based. GitHub-native. Offline-first.
 > Powered by CodePrism for token-efficient context. Open source.
 >
-> Current version: 1.0.0
-> Status: Full agentic coding harness — shipped
+> Current version: 1.5.0
+> Status: Full agentic coding harness — shipped through Phase 43
 
 ---
 
@@ -1877,39 +1877,44 @@ Stored in session DB as a JSON blob. Shown in status bar as `[tasks: 3/7]`.
 | DevAgent as MCP server | 7 | High | Done |
 | Context auto-compression | 8 | High | Done |
 | Multi-agent orchestration | 9 | High | Done |
-| Hooks infrastructure (pre/post tool use) | 10 | Critical | Planned |
-| Permission modes (read-only, accept-edits, yolo) | 10 | Critical | Planned |
-| Per-tool allow/deny rules | 10 | High | Planned |
-| `/permissions` REPL command | 10 | High | Planned |
+| Hooks infrastructure (pre/post tool use) | 10 | Critical | Done |
+| Permission modes (read-only, accept-edits, yolo) | 10 | Critical | Done |
+| Per-tool allow/deny rules | 10 | High | Done |
+| `/permissions` REPL command | 10 | High | Done |
 | Web search tool | 11 | High | Done |
 | Web fetch tool | 11 | High | Done |
-| `/deep-research` skill | 11 | Medium | Planned |
-| Structured JSON output (`--output-format`) | 11 | High | Planned |
-| JSON Schema output (`--json-schema`) | 11 | Medium | Planned |
-| Stdin pipe support | 11 | Medium | Planned |
-| DEVAGENT.md per-project memory | 12 | High | Planned |
-| MEMORY.md persistent auto-memory | 12 | High | Planned |
-| `devagent init` command | 12 | High | Planned |
-| Four-level settings hierarchy | 12 | Medium | Planned |
-| `/context` token visualization | 13 | High | Planned |
-| `/goal <condition>` mode | 13 | High | Planned |
-| Diff viewer before writes | 13 | High | Planned |
-| `/clear`, `/rewind`, `/status` | 13 | Medium | Planned |
-| `/autocompact` dynamic threshold | 13 | Medium | Planned |
-| `/btw` side question | 13 | Low | Planned |
-| Agent definition files (.devagent/agents/) | 14 | High | Planned |
-| Worktree isolation per agent | 14 | High | Planned |
-| Persistent agent memory (cross-session) | 14 | High | Planned |
-| Background agents + `/fork` + `/tasks` | 14 | Medium | Planned |
-| `/loop` recurring prompt | 14 | Medium | Planned |
-| `/autofix-pr` watch mode | 14 | Medium | Planned |
-| Effort levels (`--effort low/high/max`) | 15 | High | Planned |
-| Extended thinking toggle | 15 | Medium | Planned |
-| `--bare` mode | 15 | Medium | Planned |
-| `--allow-tools` / `--add-dir` CI flags | 15 | Medium | Planned |
+| `/deep-research` skill | 11 | Medium | Done |
+| Structured JSON output (`--output-format`) | 11 | High | Done |
+| JSON Schema output (`--json-schema`) | 11 | Medium | Done |
+| Stdin pipe support | 11 | Medium | Done |
+| DEVAGENT.md per-project memory | 12 | High | Done |
+| MEMORY.md persistent auto-memory | 12 | High | Done |
+| `devagent init` / `devagent init-project` commands | 12 | High | Done |
+| Four-level settings hierarchy | 12 | Medium | Done |
+| `/context` token visualization | 13 | High | Done |
+| `/goal <condition>` mode | 13 | High | Done |
+| Diff viewer before writes (`--diff-preview`) | 13 | High | Done |
+| `/clear`, `/rewind`, `/status` | 13 | Medium | Done |
+| `/autocompact` dynamic threshold | 13 | Medium | Done |
+| `/btw` side question | 13 | Low | Done |
+| Agent definition files (.devagent/agents/) | 14 | High | Done |
+| Worktree isolation per agent | 14 | High | Done |
+| Persistent agent memory (cross-session) | 14 | High | Done |
+| Background agents + `/fork` + `/tasks` | 14 | Medium | Done |
+| `/loop` recurring prompt | 14 | Medium | Done |
+| `/autofix-pr` watch mode | 14 | Medium | Done |
+| Effort levels (`--effort low/high/max`) | 15 | High | Done |
+| Extended thinking toggle | 15 | Medium | Done |
+| `--bare` mode | 15 | Medium | Done |
+| `--allow-tools` / `--add-dir` CI flags | 15 | Medium | Done |
 | Vision / screenshot tool | 16 | Low | Done |
 | Jupyter notebook tools | 16 | Low | Done |
 | Todo tools (in-session task list) | 16 | Low | Done |
+| MCP WebSocket + SSE transports | 39 | High | Done |
+| OAuth 2.0 PKCE auth for MCP servers | 40 | High | Done |
+| Diff preview + `--add-dir` flag | 41 | Medium | Done |
+| `/keybindings` REPL command | 42 | Low | Done |
+| In-memory session graph UI (`GET /`) | 43 | Medium | Done |
 | MemoryPrism standalone library | — | — | Idea |
 
 ---
@@ -1928,13 +1933,17 @@ Stored in session DB as a JSON blob. Shown in status bar as `[tasks: 3/7]`.
 | 7 | Quick action, plan mode, skills, full bash, MCP server | Done |
 | 8 | Context auto-compression | Done |
 | 9 | Multi-agent orchestration | Done |
-| 10 | Hooks + permission modes | v0.8.0 |
-| 11 | Web tools (web_search + fetch_url) | Done (v1.0.0 partial) |
-| 12 | DEVAGENT.md + MEMORY.md + 4-level config | v1.0.0 |
-| 13 | REPL depth: /context, /goal, diff viewer, /rewind | v1.1.0 |
-| 14 | Agent definition files + worktree + background agents | v1.2.0 |
-| 15 | Effort levels + extended thinking + CI polish | v1.3.0 |
-| 16 | Vision + notebooks + todo tools | Done (v1.0.0) |
+| 10 | Hooks + permission modes | Done |
+| 11 | Web tools (web_search + fetch_url) | Done |
+| 12 | DEVAGENT.md + MEMORY.md + 4-level config | Done |
+| 13 | REPL depth: /context, /goal, diff viewer, /rewind | Done |
+| 14 | Agent definition files + worktree + background agents | Done |
+| 15 | Effort levels + extended thinking + CI polish | Done |
+| 16 | Vision + notebooks + todo tools | Done |
+| 27–30 | Ollama Cloud auth + model picker, tab completion, auto-suggest | Done (v1.4.0) |
+| 31–38 | REPL commands, fan-out agents, notebook hardening, MCP project config | Done (v1.5.0) |
+| 39–41 | WebSocket+SSE MCP, OAuth PKCE, diff preview, --add-dir | Done (v1.5.0) |
+| 42–43 | /keybindings, in-memory session graph UI | Done (unreleased) |
 
 ---
 

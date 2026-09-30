@@ -226,9 +226,13 @@ devagent bench leaderboard
 | `devagent run --plan` | Require plan approval before every task |
 | `devagent run --allow <pattern>` | Auto-approve tool calls matching pattern (repeatable) |
 | `devagent run --deny <pattern>` | Auto-deny tool calls matching pattern (repeatable) |
+| `devagent run --diff-preview` | Show a syntax-highlighted unified diff and prompt accept/reject before each file write or edit |
+| `devagent run --add-dir <path>` | Grant read/write access to a directory outside `project_root` (repeatable) |
+| `devagent run --ui` | Open the live session graph UI in the browser when the server starts |
 | `devagent do "<task>"` | Run a single task non-interactively; exits 0/1 |
 | `devagent do "<task>" --json-schema '<schema>'` | Validate response against a JSON Schema; retries once; exit 2 on second failure |
 | `devagent do "<task>" --output-format stream-json` | Machine-readable output for CI pipelines |
+| `devagent do "<task>" --add-dir <path>` | Grant access to additional directories for this run (repeatable) |
 | `devagent orchestrate "<task>"` | Decompose task and run parallel worker agents |
 | `devagent orchestrate "<task>" --workers N` | Control worker parallelism |
 | `devagent orchestrate "<task>" --plan` | Review the decomposition plan before starting workers |
@@ -339,8 +343,9 @@ Skills are reusable task templates invoked with `/<skill-name>` inside a REPL se
 
 | Command | Description |
 |---|---|
-| `devagent serve` | Start the REST API server on port 7331 |
+| `devagent serve` | Start the REST + WebSocket API server on port 7331 |
 | `devagent serve --port 8080` | Start on a custom port |
+| `devagent serve --ui` | Start server and open the live session graph UI in the browser |
 
 ---
 
@@ -348,19 +353,86 @@ Skills are reusable task templates invoked with `/<skill-name>` inside a REPL se
 
 The interactive session (`devagent run`) recognises a set of `/` and `@` commands on top of plain task input.
 
+**Session & context**
+
 | Command | Description |
 |---|---|
 | `/help` | Show available REPL commands |
-| `/model <provider/model>` | Hot-swap the active LLM for this session (e.g. `/model anthropic/claude-opus-4-8`) |
-| `/model <model>` | Change model only, keep current provider |
-| `/fork <task>` | Spawn a background copy of the current session to work on a sub-task |
-| `@agent-name <task>` | Spawn a named agent definition as a background task (looked up from `.devagent/agents/`) |
-| `/tasks` | List all background tasks in this process with status and elapsed time |
-| `/loop N <cmd>` | Repeat a command every N seconds (`/loop off` to cancel) |
-| `/think` | Toggle extended thinking (Anthropic models only) |
+| `/status` | Session ID, project, model, tokens used, iteration count, compression count |
+| `/context` | Live token breakdown: system prompt / memory / history / hot-window |
 | `/memory` | Show or edit the current session memory block |
-| `/clear` | Clear the screen |
-| `!<shell command>` | Run a shell command directly and print the output |
+| `/tokens` | Detailed token usage and cost breakdown by model |
+| `/sessions` | List all sessions for the current project (name, ID, last updated) |
+| `/rename <name>` | Rename the current session |
+| `/clear` | Reset the conversation (keeps persistent memory, wipes history) |
+| `/rewind [N]` | Remove the last N turns from history (default 1) |
+
+**Models & effort**
+
+| Command | Description |
+|---|---|
+| `/model <provider/model>` | Hot-swap the active LLM (e.g. `/model anthropic/claude-opus-4-8`) |
+| `/model <model>` | Change model only, keep current provider |
+| `/model` | Show numbered list of available Ollama models; pick by number |
+| `/effort <level>` | Switch effort level for the next turn (`low` / `medium` / `high` / `xhigh` / `max`) |
+| `/think [on\|off]` | Toggle extended thinking (Anthropic models only) |
+| `/fast [off]` | Toggle fast mode — swaps to the cheap router tier; `/fast off` restores |
+
+**History & compression**
+
+| Command | Description |
+|---|---|
+| `/compact [focus on <topic>]` | Compress session history; optional focus string biases what is kept |
+| `/autocompact [<tokens>\|off]` | Set or clear the auto-compress token threshold |
+| `/recap [N]` | Print the last N messages (default 5) to re-orient after a break |
+
+**Agent & background tasks**
+
+| Command | Description |
+|---|---|
+| `/fork <task>` | Spawn a background copy of the current session for a sub-task |
+| `@agent-name <task>` | Spawn a named agent definition as a background task |
+| `/tasks` | List all background tasks with status and elapsed time |
+| `/background <task>` | Fire a task as a long-running detached subprocess |
+| `/batch <task> -- <glob>` | Fan out a sub-agent per matched file in parallel |
+| `/loop N <cmd>` | Repeat a command every N seconds (`/loop off` to cancel) |
+
+**Workflows**
+
+| Command | Description |
+|---|---|
+| `/goal <condition>` | Loop until the goal condition is met (e.g. `/goal all tests pass`) |
+| `/diff` | Re-show the last file diff rendered before a write |
+| `/btw <question>` | Ask a side question; response is NOT added to conversation history |
+| `/security` | Show the security gate log for this session |
+| `/permissions` | Show current permission mode and per-tool allow/deny rules |
+| `/undo` | Undo the last file write or edit |
+
+**Git & UI**
+
+| Command | Description |
+|---|---|
+| `/branch` | Show the current git branch (and switch if a branch name is given) |
+| `/theme <name>` | Switch the Rich colour theme (`default`, `dracula`, `monokai`, `solarized`) |
+| `/keybindings` | Show keyboard shortcut reference table |
+
+**Built-in skills**
+
+| Command | Description |
+|---|---|
+| `/explain [path]` | Explain what a file or function does |
+| `/test [path]` | Run tests for a file and show coverage gaps |
+| `/review` | Review staged git changes before committing |
+| `/commit [message]` | Stage, write a commit message, and commit |
+| `/summarize` | Summarise what the session has done so far |
+| `/deep-research <query>` | Multi-step web research → cited report |
+
+**Other**
+
+| Command | Description |
+|---|---|
+| `!<shell command>` | Run a shell command and print the output |
+| `/exit` | End the session |
 
 **Switching models mid-session:**
 
@@ -567,24 +639,36 @@ devagent watch --stop
 
 ## REST API
 
-Run `devagent serve` to expose a local API that editor extensions, browser tools, or scripts can call:
+Run `devagent serve` to expose a local REST + WebSocket API that editor extensions, browser tools, or scripts can call:
 
 ```bash
 devagent serve                 # http://localhost:7331
 devagent serve --port 8080     # custom port
+devagent serve --ui            # also open the live graph UI in the browser
 ```
 
-**Endpoints:**
+**Graph UI**
+
+`GET /` serves an in-memory session graph dashboard — no file is written to disk. It disappears when the server stops. The UI shows a D3.js force-directed graph of all sessions, a sidebar with token and cost metrics, a detail panel per session, and 30 s auto-refresh.
+
+**v1 API endpoints**
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | Liveness check; returns version |
-| GET | `/api/status` | LLM config, index status, offline capability |
-| GET | `/api/sessions` | Last 20 sessions with metadata |
-| GET | `/api/sessions/<id>` | Full session detail and token totals |
-| GET | `/api/tools` | All registered tools with descriptions |
-| GET | `/api/graph/stats` | CodePrism graph statistics |
-| GET | `/api/graph/files` | File map from the knowledge graph |
+| GET | `/api/v1/status` | Server health, uptime, stats |
+| GET | `/api/v1/sessions` | Paginated session list with metadata |
+| GET | `/api/v1/sessions/{id}` | Full session detail and token totals |
+| DELETE | `/api/v1/sessions/{id}` | Delete a session |
+| GET | `/api/v1/sessions/{id}/events` | Paginated event log |
+| GET | `/api/v1/sessions/{id}/memory` | Structured memory facts |
+| POST | `/api/v1/sessions/{id}/approve` | Approve or deny a pending tool call |
+| GET | `/api/v1/orchestrate/{id}/graph` | Task DAG for orchestrate sessions |
+| GET | `/api/v1/metrics` | Aggregated token/cost/session metrics (supports `?period=24h`) |
+| GET | `/api/docs` | Swagger UI |
+| GET | `/api/redoc` | ReDoc |
+| WS | `/ws/v1/{session_id}` | Live event stream |
+
+Legacy paths (`/api/health`, `/api/sessions`, `/api/tools`, `/api/graph/stats`, `/api/graph/files`) are kept for backward compatibility.
 
 All responses are JSON. CORS is enabled for local development. No authentication is applied — bind to `127.0.0.1` (the default) to avoid exposing the API on your network.
 

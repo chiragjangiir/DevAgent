@@ -32,6 +32,8 @@ break. Reads events from DB, filters to user/assistant content, renders with rul
 4 themes: default, dracula, monokai, solarized. Stored in `cfg.ui.theme` (new `UIConfig`).
 `/theme <name>` hot-swaps by recreating the PromptSession with a `prompt_toolkit.styles.Style`.
 
-## /keybindings
-Custom key rebindings for prompt_toolkit via `~/.claude/keybindings.json` style config.
-Deferred — low priority relative to other features.
+## ✅ /keybindings — SHIPPED Phase 42
+Shows a keyboard shortcut reference table in the REPL.
+F1 and F2 are wired as custom `prompt_toolkit` `KeyBindings`:
+F1 sets the buffer to `/help`, F2 to `/status`, and both call `validate_and_handle()`
+so the command runs immediately.

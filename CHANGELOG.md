@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**`/keybindings` REPL command (Phase 42)**
+- `/keybindings` — shows a full keyboard shortcut reference table inside the REPL covering navigation, history, line editing, and DevAgent-specific bindings
+- F1 keybinding: inserts `/help` into the prompt and submits it immediately
+- F2 keybinding: inserts `/status` into the prompt and submits it immediately
+- 11 tests in `tests/test_phase42.py`
+
+**On-demand graph visualisation UI (Phase 43)**
+- `devagent serve --ui` now opens the live session graph at `GET /` in the browser instead of the API docs page
+- Visualisation is served in-memory by the FastAPI server — nothing is written to disk; disappears when the server stops
+- Fully redesigned monitoring dashboard: fixed navigation bar with server URL, connection status dot, and last-refresh label; left sidebar with four stat tiles (Active, Total, Tokens 24h, Cost 24h), session status breakdown bars, model token breakdown, and colour legend; D3.js v7 force-directed graph canvas; slide-in detail panel on node click
+- Running session nodes show an animated indigo pulse ring; hover shows a tooltip; click opens the detail panel with token in/out, model, estimated cost, and a deep link to the raw session API
+- Zoom +/−/fit/reset graph controls; drag to pin nodes; 30 s auto-refresh with "Updated Xs ago" label
+- 13 tests in `tests/test_phase43.py`
+
+---
+
 ## [1.5.0] - 2026-09-30
 
 ### Added

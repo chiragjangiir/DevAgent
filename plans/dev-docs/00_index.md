@@ -2,7 +2,7 @@
 
 Private reference notes. Not tracked in git (`dev-docs/` is gitignored).
 
-Last updated: 2026-08-21
+Last updated: 2026-09-30
 
 ---
 
@@ -32,7 +32,7 @@ Last updated: 2026-08-21
 | `MAX_ITERATIONS` | `agent/loop.py` | 30 |
 | `MAX_REPAIR` | `agent/loop.py` | 3 |
 | `_WRITE_TOOL_NAMES` | `agent/loop.py` | `{"write_file", "edit_file"}` |
-| REST API port | `server/app.py` | 7331 |
+| REST API port | `server/fastapi_app.py` | 7331 |
 | Session DB | `core/storage.py` | `<project>/.devagent/sessions.db` |
 | Watcher DB | `watcher/storage.py` | `~/.devagent/watcher.db` |
 | Config path | `core/storage.py` | platform-specific TOML |
