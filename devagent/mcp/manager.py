@@ -23,6 +23,7 @@ from devagent.mcp.clients.filesystem_client import FilesystemClient
 from devagent.mcp.clients.github_client import GitHubClient
 from devagent.mcp.clients.searchx_client import SearchXClient
 from devagent.mcp.clients.spec_analysis_client import SpecAnalysisClient
+from devagent.mcp.project_config import load_mcp_json
 
 
 class NodeNotFoundError(Exception):
@@ -36,13 +37,15 @@ class MCPManager:
         self.config = config
         self.project_root = project_root
         self._exit_stack = AsyncExitStack()
-        
+
         # Clients
         self.github: GitHubClient | None = None
         self.filesystem: FilesystemClient | None = None
         self.brave: BraveClient | None = None
         self.searchx: SearchXClient | None = None
         self.spec_analysis: SpecAnalysisClient | None = None
+        # Remote servers loaded from .mcp.json (websocket / sse)
+        self.remote: dict[str, MCPClient] = {}
 
     def _check_node(self) -> None:
         """Verify Node.js is installed."""
@@ -125,7 +128,23 @@ class MCPManager:
         await sa_session.initialize()
         self.spec_analysis = SpecAnalysisClient(MCPClient(sa_session, "SpecAnalysis"))
 
+        # Connect any websocket / sse servers declared in .mcp.json
+        await self._connect_remote_servers()
+
         return self
+
+    async def _connect_remote_servers(self) -> None:
+        """Connect non-stdio servers declared in the project's .mcp.json."""
+        from devagent.mcp.transports import connect_entry
+        entries = load_mcp_json(self.project_root)
+        for entry in entries:
+            if entry.transport == "stdio":
+                continue  # stdio servers are managed separately
+            try:
+                client = await self._exit_stack.enter_async_context(connect_entry(entry))
+                self.remote[entry.name] = client
+            except Exception:
+                pass  # best-effort: don't abort startup for unreachable remote servers
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         await self._exit_stack.aclose()

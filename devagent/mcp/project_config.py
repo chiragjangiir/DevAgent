@@ -10,6 +10,15 @@ Config format (same schema Claude Code uses):
         "command": "python",
         "args": ["-m", "my_tool.server"],
         "env": {"MY_KEY": "value"}   (optional)
+      },
+      "remote-ws": {
+        "transport": "websocket",
+        "url": "ws://localhost:8080/mcp"
+      },
+      "remote-sse": {
+        "transport": "sse",
+        "url": "http://localhost:9090/sse",
+        "headers": {"Authorization": "Bearer <token>"}
       }
     }
   }
@@ -28,15 +37,26 @@ _CANDIDATES = [".mcp.json", ".devagent/mcp.json"]
 @dataclass
 class MCPServerEntry:
     name: str
-    command: str
+    command: str = ""
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
     source: str = "project"  # "project" | "global"
+    transport: str = "stdio"  # "stdio" | "websocket" | "sse"
+    url: str = ""
+    headers: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        d: dict = {"command": self.command, "args": self.args, "source": self.source}
-        if self.env:
-            d["env"] = self.env
+        d: dict = {"transport": self.transport, "source": self.source}
+        if self.transport == "stdio":
+            d["command"] = self.command
+            if self.args:
+                d["args"] = self.args
+            if self.env:
+                d["env"] = self.env
+        else:
+            d["url"] = self.url
+            if self.headers:
+                d["headers"] = self.headers
         return d
 
 
@@ -65,15 +85,23 @@ def _parse(path: Path) -> list[MCPServerEntry]:
     for name, cfg in servers.items():
         if not isinstance(cfg, dict):
             continue
-        command = cfg.get("command", "")
-        if not command:
+        transport = str(cfg.get("transport", "stdio"))
+        url = str(cfg.get("url", ""))
+        command = str(cfg.get("command", ""))
+        # stdio entries require a command; url-based entries require a url
+        if transport == "stdio" and not command:
+            continue
+        if transport in ("websocket", "sse") and not url:
             continue
         entries.append(MCPServerEntry(
             name=str(name),
-            command=str(command),
+            command=command,
             args=[str(a) for a in cfg.get("args", [])],
             env={str(k): str(v) for k, v in (cfg.get("env") or {}).items()},
             source=str(path.relative_to(path.parents[len(path.parts) - 2])),
+            transport=transport,
+            url=url,
+            headers={str(k): str(v) for k, v in (cfg.get("headers") or {}).items()},
         ))
     return entries
 
@@ -106,11 +134,18 @@ def save_mcp_json(project_root: str | Path, entries: list[MCPServerEntry]) -> Pa
 
     servers: dict = existing.get("mcpServers") or {}
     for entry in entries:
-        servers[entry.name] = {
-            "command": entry.command,
-            **({"args": entry.args} if entry.args else {}),
-            **({"env": entry.env} if entry.env else {}),
-        }
+        if entry.transport == "stdio":
+            servers[entry.name] = {
+                "command": entry.command,
+                **({"args": entry.args} if entry.args else {}),
+                **({"env": entry.env} if entry.env else {}),
+            }
+        else:
+            servers[entry.name] = {
+                "transport": entry.transport,
+                "url": entry.url,
+                **({"headers": entry.headers} if entry.headers else {}),
+            }
 
     existing["mcpServers"] = servers
     path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
