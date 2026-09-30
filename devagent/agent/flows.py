@@ -34,6 +34,26 @@ _REPL_COMMANDS = [
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
     "/fast", "/compact", "/recap", "/branch", "/theme", "/batch", "/background",
+    "/keybindings",
+]
+
+# Phase 42 — /keybindings reference table: (key combo, action description)
+_KEYBINDINGS_TABLE: list[tuple[str, str]] = [
+    ("Tab",          "Cycle through /command completions"),
+    ("Up / Down",    "Navigate command history"),
+    ("Ctrl+A",       "Move cursor to beginning of line"),
+    ("Ctrl+E",       "Move cursor to end of line"),
+    ("Ctrl+K",       "Delete from cursor to end of line"),
+    ("Ctrl+U",       "Delete from cursor to beginning of line"),
+    ("Ctrl+W",       "Delete word before cursor"),
+    ("Alt+B",        "Move one word backward"),
+    ("Alt+F",        "Move one word forward"),
+    ("Ctrl+R",       "Reverse history search (incremental)"),
+    ("Ctrl+L",       "Clear the terminal screen"),
+    ("Ctrl+C",       "Cancel current input / interrupt agent"),
+    ("Ctrl+D",       "Exit session (same as /exit)"),
+    ("F1",           "Insert /help into the prompt"),
+    ("F2",           "Insert /status into the prompt"),
 ]
 
 # Phase 36 — prompt_toolkit colour themes
@@ -496,13 +516,32 @@ class DevAgentSession:
         try:
             from prompt_toolkit import PromptSession as _PSession
             from prompt_toolkit.completion import WordCompleter as _WC
+            from prompt_toolkit.document import Document as _Doc
+            from prompt_toolkit.key_binding import KeyBindings as _KB
             from prompt_toolkit.styles import Style as _PTStyle
 
             def _make_pt_session(theme_name: str):
                 _style_dict = _THEME_STYLES.get(theme_name)
                 _style = _PTStyle.from_dict(_style_dict) if _style_dict else None
                 _completer = _WC(_REPL_COMMANDS, sentence=True)
-                return _PSession(completer=_completer, complete_while_typing=True, style=_style)
+                _kb = _KB()
+
+                @_kb.add("f1")
+                def _f1(event):
+                    event.current_buffer.set_document(_Doc("/help"))
+                    event.current_buffer.validate_and_handle()
+
+                @_kb.add("f2")
+                def _f2(event):
+                    event.current_buffer.set_document(_Doc("/status"))
+                    event.current_buffer.validate_and_handle()
+
+                return _PSession(
+                    completer=_completer,
+                    complete_while_typing=True,
+                    style=_style,
+                    key_bindings=_kb,
+                )
 
             _pt_holder[0] = _make_pt_session(getattr(getattr(self._cfg, "ui", None), "theme", "default"))
 
@@ -972,6 +1011,18 @@ class DevAgentSession:
                     self._console.print(f"[dim]Theme: [bold]{_theme_arg}[/bold][/dim]")
                 continue
 
+            # Phase 42 — /keybindings: display keyboard shortcut reference table
+            if cmd == "/keybindings":
+                from rich.table import Table as _Table
+                _kb_table = _Table(title="Keyboard Shortcuts", border_style="dim", show_header=True, header_style="bold cyan")
+                _kb_table.add_column("Key", style="bold yellow", no_wrap=True)
+                _kb_table.add_column("Action")
+                for _key, _action in _KEYBINDINGS_TABLE:
+                    _kb_table.add_row(_key, _action)
+                self._console.print(_kb_table)
+                self._console.print("[dim]F1 and F2 insert /help and /status directly into the prompt.[/dim]")
+                continue
+
             # Phase 13 — /clear: reset conversation (start new session, keep project memory)
             if cmd == "/clear":
                 new_sid = self._mgr.new(
@@ -1293,6 +1344,7 @@ class DevAgentSession:
                     self._console.print("[dim]  /theme [<name>]  — list themes or switch: default|dracula|monokai|solarized[/dim]")
                     self._console.print("[dim]  /rename <name>  — rename this session[/dim]")
                     self._console.print("[dim]  /sessions  — list sessions in this project[/dim]")
+                    self._console.print("[dim]  /keybindings  — show keyboard shortcut reference (F1=help, F2=status)[/dim]")
                     self._console.print("[dim]  !<command>  — run a shell command in the project root[/dim]")
                     continue
 
