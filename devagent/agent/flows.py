@@ -157,6 +157,9 @@ class DevAgentSession:
         agent_name: str | None = None,
         # Phase 29 — session name
         name: str | None = None,
+        # Phase 41 — extra dirs + diff preview
+        extra_dirs: list[str] | None = None,
+        diff_preview: bool = False,
     ) -> None:
         from devagent.agent import permissions as perm_registry
         from devagent.agent.loop import AgentLoop
@@ -246,6 +249,15 @@ class DevAgentSession:
             self._console.print(f"\n[yellow]{msg}[/yellow]")
             return Confirm.ask("Proceed with write?", default=False)
 
+        # ── Diff preview callback (Phase 41) ──────────────────────────
+        _diff_confirm_fn = None
+        if diff_preview and not bare:
+            from rich.syntax import Syntax
+            def _diff_confirm_fn(path: str, diff: str) -> bool:
+                self._console.print()
+                self._console.print(Syntax(diff, "diff", theme="monokai", line_numbers=False))
+                return Confirm.ask(f"Apply change to [cyan]{path}[/cyan]?", default=True)
+
         # ── Hooks runner (Phase 10) ────────────────────────────────────
         hook_runner = None
         if not bare:
@@ -273,6 +285,8 @@ class DevAgentSession:
             searchx_base_url=cfg.searchx.base_url,
             search_provider=cfg.search_provider,
             hook_runner=hook_runner,
+            extra_dirs=extra_dirs,
+            diff_confirm_fn=_diff_confirm_fn,
         )
 
         # ── Multi-model router (optional) ─────────────────────────────

@@ -1625,6 +1625,12 @@ def run(
     name: str | None = typer.Option(
         None, "--name", "-n", help="Name this session (also used to resume by name)"
     ),
+    add_dir: list[str] = typer.Option(  # noqa: B008
+        [], "--add-dir", help="Extra directory the agent may read/write (repeatable)"
+    ),
+    diff_preview: bool = typer.Option(
+        False, "--diff-preview", help="Show a diff and ask for confirmation before each file write/edit"
+    ),
 ) -> None:
     """Start an interactive agent session (the main DevAgent command)."""
     from devagent.agent.flows import DevAgentSession
@@ -1657,6 +1663,8 @@ def run(
             allow_tools=tools_list,
             permission_mode=permission_mode,
             name=name,
+            extra_dirs=list(add_dir) or None,
+            diff_preview=diff_preview,
         )
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -1730,6 +1738,9 @@ def do(
         None, "--json-schema",
         help="JSON Schema string. Validates final answer; retries once on mismatch (exit 2 if still invalid).",
     ),
+    add_dir: list[str] = typer.Option(  # noqa: B008
+        [], "--add-dir", help="Extra directory the agent may read/write (repeatable)"
+    ),
 ) -> None:
     """Run a single task non-interactively and exit (exit code 0=success, 1=error, 2=schema mismatch)."""
     import json as _json
@@ -1778,6 +1789,7 @@ def do(
             bare=bare,
             allow_tools=tools_list,
             permission_mode=permission_mode,
+            extra_dirs=list(add_dir) or None,
         )
 
     def _extract_final_text(evs: list) -> str:

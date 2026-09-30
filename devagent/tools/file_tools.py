@@ -8,6 +8,7 @@ in any coding agent loop.
 from __future__ import annotations
 
 import difflib
+from collections.abc import Callable
 from pathlib import Path
 
 from devagent.tools.registry import ToolRegistry
@@ -18,23 +19,40 @@ from devagent.tools.registry import ToolRegistry
 _DIFF_SEP = "\n---diff---\n"
 
 
-def _safe_resolve(project_root: str, path: str) -> Path:
-    """Resolve path relative to project_root; raise ValueError on traversal."""
-    root = Path(project_root).resolve()
-    target = (root / path).resolve()
-    if not str(target).startswith(str(root)):
-        raise ValueError(f"Path {path!r} escapes project root")
-    return target
+def _safe_resolve(project_root: str, path: str, extra_roots: list[Path] | None = None) -> Path:
+    """Resolve path relative to project_root (or any extra_roots); raise ValueError on traversal."""
+    main_root = Path(project_root).resolve()
+    target = (main_root / path).resolve()
+    allowed_roots = [main_root] + (extra_roots or [])
+    if any(str(target).startswith(str(r)) for r in allowed_roots):
+        return target
+    # Try resolving as absolute path within an extra root
+    abs_target = Path(path).resolve()
+    if any(str(abs_target).startswith(str(r)) for r in allowed_roots):
+        return abs_target
+    raise ValueError(f"Path {path!r} escapes project root and all extra dirs")
 
 
-def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None:
+def register_file_tools(
+    registry: ToolRegistry,
+    project_root: str = ".",
+    extra_dirs: list[str] | None = None,
+    diff_confirm_fn: Callable[[str, str], bool] | None = None,
+) -> None:
+    """Register file tools.
+
+    extra_dirs:     additional directories the tools may read/write outside project_root.
+    diff_confirm_fn: if set, called with (path, unified_diff) before each write/edit;
+                     returning False aborts the operation (user rejected the change).
+    """
+    _extra_roots = [Path(d).resolve() for d in (extra_dirs or [])]
 
     def read_file(args: dict) -> str:
         path = args.get("path", "")
         start = int(args.get("start_line", 1))
         end = args.get("end_line")
         try:
-            target = _safe_resolve(project_root, path)
+            target = _safe_resolve(project_root, path, _extra_roots)
             lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
             if end:
                 lines = lines[start - 1 : int(end)]
@@ -49,16 +67,18 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
         path = args.get("path", "")
         content = args.get("content", "")
         try:
-            target = _safe_resolve(project_root, path)
+            target = _safe_resolve(project_root, path, _extra_roots)
             target.parent.mkdir(parents=True, exist_ok=True)
             before_lines: list[str] = []
             if target.exists():
                 before_lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
-            target.write_text(content, encoding="utf-8")
             after_lines = content.splitlines(keepends=True)
             diff = "".join(
                 difflib.unified_diff(before_lines, after_lines, fromfile=f"a/{path}", tofile=f"b/{path}", n=3)
             )
+            if diff and diff_confirm_fn is not None and not diff_confirm_fn(path, diff):
+                return f"[skipped] Write to {path} rejected by user"
+            target.write_text(content, encoding="utf-8")
             msg = f"Written {len(content)} bytes to {path}"
             return f"{msg}{_DIFF_SEP}{diff}" if diff else msg
         except Exception as exc:
@@ -69,7 +89,7 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
         old_str = args.get("old_str", "")
         new_str = args.get("new_str", "")
         try:
-            target = _safe_resolve(project_root, path)
+            target = _safe_resolve(project_root, path, _extra_roots)
             original = target.read_text(encoding="utf-8")
             if old_str not in original:
                 return f"[error] old_str not found in {path}"
@@ -77,7 +97,6 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
             if count > 1:
                 return f"[error] old_str found {count} times — be more specific"
             updated = original.replace(old_str, new_str, 1)
-            target.write_text(updated, encoding="utf-8")
             diff = "".join(
                 difflib.unified_diff(
                     original.splitlines(keepends=True),
@@ -87,6 +106,9 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
                     n=3,
                 )
             )
+            if diff and diff_confirm_fn is not None and not diff_confirm_fn(path, diff):
+                return f"[skipped] Edit to {path} rejected by user"
+            target.write_text(updated, encoding="utf-8")
             msg = f"Edited {path}: replaced 1 occurrence"
             return f"{msg}{_DIFF_SEP}{diff}" if diff else msg
         except Exception as exc:
@@ -96,7 +118,7 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
         path = args.get("path", ".")
         max_depth = int(args.get("max_depth", 3))
         try:
-            root = _safe_resolve(project_root, path)
+            root = _safe_resolve(project_root, path, _extra_roots)
             results = []
             _walk(root, root, 0, max_depth, results)
             return "\n".join(results) or "(no files)"
@@ -106,7 +128,7 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
     def create_directory(args: dict) -> str:
         path = args.get("path", "")
         try:
-            target = _safe_resolve(project_root, path)
+            target = _safe_resolve(project_root, path, _extra_roots)
             target.mkdir(parents=True, exist_ok=True)
             return f"Directory created: {path}"
         except Exception as exc:
@@ -118,7 +140,7 @@ def register_file_tools(registry: ToolRegistry, project_root: str = ".") -> None
         if not confirm:
             return "[error] Set confirm=true to delete a file"
         try:
-            target = _safe_resolve(project_root, path)
+            target = _safe_resolve(project_root, path, _extra_roots)
             if target.is_file():
                 target.unlink()
                 return f"Deleted: {path}"

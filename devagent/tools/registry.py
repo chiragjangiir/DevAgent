@@ -91,6 +91,9 @@ def build_registry(
     search_provider: str = "searchx",
     # Phase 10 — hooks runner
     hook_runner=None,                # HookRunner | None
+    # Phase 41 — extra dirs + diff confirm
+    extra_dirs: list[str] | None = None,
+    diff_confirm_fn=None,            # Callable[[str, str], bool] | None
 ) -> ToolRegistry:
     """Build and return the default tool registry with all built-in tools.
 
@@ -111,7 +114,7 @@ def build_registry(
     from devagent.tools.shell_tool import register_shell_tool
 
     registry = ToolRegistry(hook_runner=hook_runner)
-    register_file_tools(registry, project_root)
+    register_file_tools(registry, project_root, extra_dirs=extra_dirs, diff_confirm_fn=diff_confirm_fn)
     register_shell_tool(registry, project_root)
     register_search_tools(registry, project_root)
     register_git_tools(registry, project_root)
