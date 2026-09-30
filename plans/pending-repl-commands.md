@@ -17,9 +17,12 @@ a `DevAgentSession(bare=True)` and calls `run_message`. Results shown in a Rich 
 Snapshot the current session to a new branch session (all events copied).
 User resumes with `devagent run --resume <id>`. Uses `store.copy_session_events(from, to)`.
 
-## /background
-Detach the current session as a background daemon (keep running after terminal closes).
-Implementation: serialize session state; launch a detached subprocess; `/status` polls it via IPC.
+## ✅ /background — SHIPPED Phase 38
+Detach a task as a long-running background subprocess (survives terminal close).
+`/background <task>` launches `devagent do <task>` via `subprocess.Popen` with
+`DETACHED_PROCESS` (Windows) / `start_new_session=True` (Unix). stdout+stderr go to
+`.devagent/bg_<id>.log`; state persisted in `.devagent/bg_<id>.json`.
+`/background` (no args) lists all jobs and their live PID status.
 
 ## ✅ /recap [N] — SHIPPED Phase 34
 Print last N messages (default 5) from session history so the user can re-orient after a long

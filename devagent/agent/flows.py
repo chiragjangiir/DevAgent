@@ -33,7 +33,7 @@ _REPL_COMMANDS = [
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
-    "/fast", "/compact", "/recap", "/branch", "/theme", "/batch",
+    "/fast", "/compact", "/recap", "/branch", "/theme", "/batch", "/background",
 ]
 
 # Phase 36 — prompt_toolkit colour themes
@@ -1064,6 +1064,34 @@ class DevAgentSession:
                 self._console.print("[dim](response above not added to session history)[/dim]")
                 continue
 
+            # Phase 38 — /background [<task>]: launch task as detached subprocess or list jobs
+            if cmd.startswith("/background"):
+                _bg_task = raw[len("/background"):].strip()
+                from devagent.background import jobs as _bg_jobs
+                if not _bg_task:
+                    # List all background jobs for this project
+                    _bg_all = _bg_jobs.list_jobs(self._project_root)
+                    if not _bg_all:
+                        self._console.print("[dim]No background jobs.[/dim]")
+                    else:
+                        for _bj in _bg_all:
+                            _bc = {"running": "yellow", "done": "green", "failed": "red"}.get(
+                                _bj.status, "white"
+                            )
+                            self._console.print(
+                                f"  [{_bc}]{_bj.status}[/{_bc}]  {_bj.id}  "
+                                f"pid={_bj.pid}  {_bj.task[:60]}"
+                            )
+                            self._console.print(f"    [dim]log: {_bj.log_path}[/dim]")
+                else:
+                    _bj = _bg_jobs.launch(_bg_task, self._project_root)
+                    self._console.print(
+                        f"[dim]Background job [bold]{_bj.id}[/bold] started  pid={_bj.pid}[/dim]"
+                    )
+                    self._console.print(f"[dim]Tail output: devagent run — or: tail -f {_bj.log_path}[/dim]")
+                    self._console.print("[dim]List jobs: /background (no args)[/dim]")
+                continue
+
             # Phase 14 — /tasks: list background tasks
             if cmd == "/tasks":
                 from devagent.session.task_store import get_store as _get_store
@@ -1238,6 +1266,8 @@ class DevAgentSession:
                     self._console.print("[dim]  /tasks       — list background tasks[/dim]")
                     self._console.print("[dim]  /loop [Ns|Nm] <cmd> — run command on schedule (/loop off to stop)[/dim]")
                     self._console.print("[dim]  /batch <task> -- <glob> — fan-out one sub-agent per matched file[/dim]")
+                    self._console.print("[dim]  /background <task> — launch detached subprocess (survives terminal close)[/dim]")
+                    self._console.print("[dim]  /background         — list detached background jobs[/dim]")
                     self._console.print("[bold]Other:[/bold]")
                     self._console.print("[dim]  /model <provider/model>  — hot-swap LLM for the rest of the session[/dim]")
                     self._console.print("[dim]  /effort low|medium|high|xhigh|max  — change effort level[/dim]")
