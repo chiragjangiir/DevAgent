@@ -35,6 +35,26 @@ _CANDIDATES = [".mcp.json", ".devagent/mcp.json"]
 
 
 @dataclass
+class OAuthConfig:
+    """OAuth 2.0 config read from an MCP server's .mcp.json entry."""
+
+    authorization_url: str
+    token_url: str
+    client_id: str
+    scopes: list[str] = field(default_factory=list)
+    type: str = "oauth2"
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "authorization_url": self.authorization_url,
+            "token_url": self.token_url,
+            "client_id": self.client_id,
+            "scopes": self.scopes,
+        }
+
+
+@dataclass
 class MCPServerEntry:
     name: str
     command: str = ""
@@ -44,6 +64,7 @@ class MCPServerEntry:
     transport: str = "stdio"  # "stdio" | "websocket" | "sse"
     url: str = ""
     headers: dict[str, str] = field(default_factory=dict)
+    auth: OAuthConfig | None = None
 
     def to_dict(self) -> dict:
         d: dict = {"transport": self.transport, "source": self.source}
@@ -57,6 +78,8 @@ class MCPServerEntry:
             d["url"] = self.url
             if self.headers:
                 d["headers"] = self.headers
+        if self.auth:
+            d["auth"] = self.auth.to_dict()
         return d
 
 
@@ -93,6 +116,17 @@ def _parse(path: Path) -> list[MCPServerEntry]:
             continue
         if transport in ("websocket", "sse") and not url:
             continue
+        auth: OAuthConfig | None = None
+        if isinstance(cfg.get("auth"), dict):
+            ac = cfg["auth"]
+            if ac.get("authorization_url") and ac.get("token_url") and ac.get("client_id"):
+                auth = OAuthConfig(
+                    authorization_url=str(ac["authorization_url"]),
+                    token_url=str(ac["token_url"]),
+                    client_id=str(ac["client_id"]),
+                    scopes=[str(s) for s in ac.get("scopes", [])],
+                    type=str(ac.get("type", "oauth2")),
+                )
         entries.append(MCPServerEntry(
             name=str(name),
             command=command,
@@ -102,6 +136,7 @@ def _parse(path: Path) -> list[MCPServerEntry]:
             transport=transport,
             url=url,
             headers={str(k): str(v) for k, v in (cfg.get("headers") or {}).items()},
+            auth=auth,
         ))
     return entries
 
@@ -139,12 +174,14 @@ def save_mcp_json(project_root: str | Path, entries: list[MCPServerEntry]) -> Pa
                 "command": entry.command,
                 **({"args": entry.args} if entry.args else {}),
                 **({"env": entry.env} if entry.env else {}),
+                **({"auth": entry.auth.to_dict()} if entry.auth else {}),
             }
         else:
             servers[entry.name] = {
                 "transport": entry.transport,
                 "url": entry.url,
                 **({"headers": entry.headers} if entry.headers else {}),
+                **({"auth": entry.auth.to_dict()} if entry.auth else {}),
             }
 
     existing["mcpServers"] = servers
