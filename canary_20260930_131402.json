@@ -1,0 +1,122 @@
+[
+  {
+    "task_id": "canary-tool-registry",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-web-tools",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-config-load",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-vision-tools",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-todo-tools",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-oracle-pass",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-oracle-fail",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-task-load",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "canary-report-table",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "benchmarks/bench_security.py",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "benchmarks/bench_tasks.py",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  },
+  {
+    "task_id": "benchmarks/bench_token_usage.py",
+    "passed": true,
+    "duration_sec": 0.0,
+    "iterations_used": 0,
+    "cost_usd": 0.0,
+    "files_touched": [],
+    "files_missed": [],
+    "oracle_output": ""
+  }
+]
