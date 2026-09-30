@@ -8,9 +8,10 @@ Targeted context compaction: compress history but keep content related to a give
 Toggle fast mode — swaps to the `cheap` router tier model; `/fast off` restores the original provider/model.
 State tracked in `_fast_mode`, `_pre_fast_provider`, `_pre_fast_model` on `DevAgentSession`.
 
-## /batch
+## ✅ /batch — SHIPPED Phase 37
 Apply a change across multiple files in parallel (fan-out sub-agents per file).
-Implementation: parse a task + glob from the command, spin up worktree-isolated sub-agents, merge results.
+Syntax: `/batch <task> -- <glob>`. Uses `ThreadPoolExecutor(max_workers=4)`; each worker spins up
+a `DevAgentSession(bare=True)` and calls `run_message`. Results shown in a Rich table.
 
 ## ✅ /branch — SHIPPED Phase 36
 Snapshot the current session to a new branch session (all events copied).

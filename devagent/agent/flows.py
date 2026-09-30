@@ -33,7 +33,7 @@ _REPL_COMMANDS = [
     "/status", "/context", "/clear", "/rewind", "/permissions", "/goal", "/btw", "/autocompact",
     "/model", "/effort", "/think", "/memory", "/tokens", "/security", "/undo", "/diff", "/exit",
     "/fork", "/tasks", "/loop", "/rename", "/sessions",
-    "/fast", "/compact", "/recap", "/branch", "/theme",
+    "/fast", "/compact", "/recap", "/branch", "/theme", "/batch",
 ]
 
 # Phase 36 — prompt_toolkit colour themes
@@ -1080,6 +1080,69 @@ class DevAgentSession:
                             self._console.print(f"    [dim]{t.result[:120]}[/dim]")
                 continue
 
+            # Phase 37 — /batch <task> -- <glob>: fan-out one sub-agent per matched file
+            if cmd.startswith("/batch"):
+                _batch_rest = raw[len("/batch"):].strip()
+                if " -- " not in _batch_rest:
+                    self._console.print(
+                        "[yellow]Usage: /batch <task> -- <glob>  "
+                        "e.g. /batch 'add type hints' -- src/**/*.py[/yellow]"
+                    )
+                    continue
+                _batch_task, _batch_glob = _batch_rest.rsplit(" -- ", 1)
+                _batch_task = _batch_task.strip()
+                _batch_glob = _batch_glob.strip()
+
+                import glob as _glob_mod
+                _matched = sorted(
+                    _glob_mod.glob(_batch_glob, root_dir=str(self._project_root), recursive=True)
+                )
+                if not _matched:
+                    self._console.print(f"[yellow]No files matched: {_batch_glob}[/yellow]")
+                    continue
+
+                self._console.print(
+                    f"[dim]Batch: {len(_matched)} file(s) matched — running up to 4 in parallel…[/dim]"
+                )
+
+                import concurrent.futures
+                import threading
+                _batch_results: dict[str, str] = {}
+                _batch_lock = threading.Lock()
+                _batch_cfg = self._cfg
+                _batch_root = self._project_root
+
+                def _batch_worker(
+                    fpath: str,
+                    _cfg=_batch_cfg,
+                    _root=_batch_root,
+                    _task=_batch_task,
+                ) -> tuple[str, str]:
+                    try:
+                        from devagent.agent.flows import DevAgentSession as _DS
+                        _sub = _DS(_cfg, _root, bare=True)
+                        msg = f"Apply the following change to `{fpath}` only:\n\n{_task}"
+                        result = _sub.run_message(msg, quiet=True)
+                        return fpath, result or "done"
+                    except Exception as _exc:
+                        return fpath, f"ERROR: {_exc}"
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _pool:
+                    for _fp, _res in _pool.map(_batch_worker, _matched):
+                        with _batch_lock:
+                            _batch_results[_fp] = _res
+
+                from rich.table import Table as _Table
+                _tbl = _Table(title=f"Batch: {_batch_task[:60]}", show_lines=False)
+                _tbl.add_column("File", style="cyan", no_wrap=True)
+                _tbl.add_column("Result")
+                for _fp in _matched:
+                    _r = _batch_results.get(_fp, "—")
+                    _style = "red" if str(_r).startswith("ERROR") else "green"
+                    _tbl.add_row(_fp, f"[{_style}]{str(_r)[:100]}[/{_style}]")
+                self._console.print(_tbl)
+                continue
+
             # Phase 14 — /fork <task>: run a task in a background thread
             if cmd.startswith("/fork"):
                 fork_task = raw[5:].strip()
@@ -1170,10 +1233,11 @@ class DevAgentSession:
                     self._console.print("[dim]  /autocompact [off] — toggle dynamic context compression[/dim]")
                     self._console.print("[dim]  /goal <condition> — loop until goal is met[/dim]")
                     self._console.print("[dim]  /btw <question> — side question (not saved to history)[/dim]")
-                    self._console.print("[bold]Background agents (Phase 14):[/bold]")
+                    self._console.print("[bold]Background agents:[/bold]")
                     self._console.print("[dim]  /fork <task> — run task in background thread[/dim]")
                     self._console.print("[dim]  /tasks       — list background tasks[/dim]")
                     self._console.print("[dim]  /loop [Ns|Nm] <cmd> — run command on schedule (/loop off to stop)[/dim]")
+                    self._console.print("[dim]  /batch <task> -- <glob> — fan-out one sub-agent per matched file[/dim]")
                     self._console.print("[bold]Other:[/bold]")
                     self._console.print("[dim]  /model <provider/model>  — hot-swap LLM for the rest of the session[/dim]")
                     self._console.print("[dim]  /effort low|medium|high|xhigh|max  — change effort level[/dim]")
