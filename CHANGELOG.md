@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-30
+
+### Added
+
+**REPL command expansion (Phases 32, 34, 36)**
+- `/fast` — toggles fast mode (streaming vs. single-shot) on the fly without restarting the session
+- `/compact [focus]` — compresses session history to a summary; optional `focus` string biases what's kept
+- `/recap` — prints a structured summary of the current session: files touched, tools called, decisions made
+- `/branch` — shows the current git branch and lets you switch without leaving the REPL
+- `/theme <name>` — switches the Rich colour theme live (dark, light, monokai, etc.)
+
+**Fan-out and background agents (Phases 37, 38)**
+- `/batch <glob>` — fans out a sub-agent per matched file in parallel; results are collected and rendered as a table; each sub-agent runs in its own worktree when `isolation = "worktree"` is set
+- `/background <task>` — fires a task as a background daemon agent and returns immediately; status visible via `/tasks`
+
+**Notebook tools hardened (Phase 33)**
+- Suppressed the `nbformat` version warning that leaked into tool output on every call
+- Added 14 new notebook-tool tests covering cell execution, output capture, and round-trip save
+
+**`emit_json` output mode (Phase 34)**
+- `devagent do "<task>" --emit-json` — prints a machine-readable JSON envelope (`{event, text, tool_calls, …}`) instead of Rich-formatted output; suitable for piping into jq or CI scripts
+
+**`.mcp.json` project MCP server config (Phase 35)**
+- Projects can drop a `.mcp.json` at their root to declare MCP servers; `MCPManager` loads and connects them automatically at session start
+- Supports `stdio`, `websocket`, and `sse` transports in the same file
+- `devagent mcp list` reads `.mcp.json` and shows connection status for each entry
+
+**WebSocket + SSE MCP transport (Phase 39)**
+- `connect_websocket(name, url)` and `connect_sse(name, url, headers)` async context managers in `devagent/mcp/transports/`
+- `connect_entry()` dispatcher routes `transport = "websocket"` or `"sse"` entries from `.mcp.json` automatically
+- `MCPManager._connect_remote_servers()` best-effort connects all non-stdio servers at startup; unreachable servers are skipped with a warning
+- WebSocket import is lazy so older `mcp` builds that lack the module still work
+
+**OAuth 2.0 PKCE auth for MCP servers (Phase 40)**
+- Full authorization-code + PKCE flow (`pkce_authorize`): generates a code verifier, computes the SHA-256 challenge, opens the browser, starts a local redirect server, exchanges the code for tokens
+- `refresh_token_flow()` — silently refreshes an expired access token
+- Platform keyring token cache (`devagent/mcp/auth/token_cache.py`): tokens survive process restarts; 60-second expiry buffer prevents last-second failures; graceful no-op when keyring is unavailable
+- `OAuthConfig` dataclass + `MCPServerEntry.auth` field — declare auth in `.mcp.json` under an `auth:` key
+
+**Diff viewer before writes + `--add-dir` (Phase 41)**
+- `--diff-preview` flag on `devagent run` — before each `write_file` or `edit_file`, shows a syntax-highlighted unified diff (Rich + monokai) and prompts the user to accept or reject; the file is not touched on rejection
+- `--add-dir <path>` flag (repeatable) on `run` and `do` — grants the agent read/write access to directories outside `project_root`; path-traversal guard still applies across all allowed roots
+- `diff_confirm_fn` callback is `None` in non-interactive / `--bare` mode so batch workflows are unaffected
+
+---
+
 ## [1.4.0] - 2026-09-29
 
 ### Added
