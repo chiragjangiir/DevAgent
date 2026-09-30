@@ -40,7 +40,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from devagent.server.ws_manager import manager as ws_manager
 from devagent.session import store as session_store
@@ -55,6 +55,8 @@ _state: dict[str, Any] = {
     "config": None,
     "project_root": Path("."),
     "start_time": time.time(),
+    "host": "127.0.0.1",
+    "port": 7331,
 }
 
 # ---------------------------------------------------------------------------
@@ -179,6 +181,17 @@ async def _http_error_handler(request: Request, exc: HTTPException) -> JSONRespo
     and makes the app-side error handling simpler.
     """
     return JSONResponse({"error": str(exc.detail)}, status_code=exc.status_code)
+
+
+# ---------------------------------------------------------------------------
+# Graph visualisation UI — served on demand, never written to disk.
+# Exists only while the server is running; disappears on Ctrl-C.
+# ---------------------------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def graph_ui() -> str:
+    from devagent.server.graph_ui import build_html
+    return build_html(_state["host"], _state["port"])
 
 
 # ---------------------------------------------------------------------------
@@ -616,6 +629,8 @@ def serve(
     from rich.panel import Panel
 
     console = Console()
+    _state["host"] = host
+    _state["port"] = port
     application = create_app(config=config, project_root=project_root)
 
     console.print(Panel(
@@ -635,6 +650,6 @@ def serve(
 
     if open_ui:
         import webbrowser
-        webbrowser.open(f"http://{host}:{port}/api/docs")
+        webbrowser.open(f"http://{host}:{port}/")
 
     uvicorn.run(application, host=host, port=port, log_level="warning")
