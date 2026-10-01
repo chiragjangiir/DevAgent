@@ -37,7 +37,7 @@ This Code of Conduct applies within all project spaces — GitHub issues, pull r
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the project maintainers at **krishna.tyagi@futuresmart.ai**. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the project maintainers at **krishnatyagi2526@gmail.com**. All complaints will be reviewed and investigated promptly and fairly.
 
 All maintainers are obligated to respect the privacy and security of the person who reports an incident.
 
