@@ -173,7 +173,7 @@ def test_memory_tools_registered_in_registry():
 
 def _make_loop_with_mocked_cp(module_summary=None, test_output="1 passed"):
     """Build an AgentLoop stub for testing the repair method."""
-    from devagent.agent.loop import AgentLoop, MAX_REPAIR
+    from devagent.agent.loop import MAX_REPAIR, AgentLoop
     from devagent.session.budget import TokenBudget
     from devagent.tools.registry import ToolRegistry
 
