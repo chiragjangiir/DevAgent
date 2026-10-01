@@ -378,6 +378,7 @@ class DevAgentSession:
             codeprism_client=cp_client,
             router=router,
             max_iterations=max_iters,
+            max_repair=cfg.agent.max_repair_iterations,
             loop_detection=cfg.agent.loop_detection,
             permission_mgr=self._permission_mgr,
             bare=bare,

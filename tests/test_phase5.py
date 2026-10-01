@@ -173,7 +173,7 @@ def test_memory_tools_registered_in_registry():
 
 def _make_loop_with_mocked_cp(module_summary=None, test_output="1 passed"):
     """Build an AgentLoop stub for testing the repair method."""
-    from devagent.agent.loop import AgentLoop
+    from devagent.agent.loop import AgentLoop, MAX_REPAIR
     from devagent.session.budget import TokenBudget
     from devagent.tools.registry import ToolRegistry
 
@@ -199,6 +199,7 @@ def _make_loop_with_mocked_cp(module_summary=None, test_output="1 passed"):
     loop._cp_client = cp
     loop._router = None
     loop._repair_attempt = 0
+    loop._max_repair = MAX_REPAIR
     return loop
 
 
@@ -258,6 +259,46 @@ def test_auto_test_max_repair_warning():
     note = loop._auto_test_after_write("src/foo.py")
     assert "WARNING" in note or "Max repair" in note
     assert loop._repair_attempt == 3
+
+
+def test_agent_loop_stores_configured_max_repair():
+    """agent.max_repair_iterations must reach the loop instead of the constant."""
+    from devagent.agent.loop import MAX_REPAIR, AgentLoop
+    from devagent.core.config import DevAgentConfig
+    from devagent.session.budget import TokenBudget
+
+    cfg = DevAgentConfig()
+
+    def build(max_repair=None):
+        kwargs = {}
+        if max_repair is not None:
+            kwargs["max_repair"] = max_repair
+        return AgentLoop(
+            llm=MagicMock(),
+            registry=MagicMock(),
+            session_mgr=MagicMock(),
+            session_id="test",
+            memory=MagicMock(),
+            budget=TokenBudget(),
+            system_prompt="",
+            **kwargs,
+        )
+
+    assert build()._max_repair == MAX_REPAIR  # unchanged default
+    assert build(cfg.agent.max_repair_iterations)._max_repair == cfg.agent.max_repair_iterations
+    assert build(5)._max_repair == 5
+    assert build(0)._max_repair == 0  # explicit 0 disables auto-repair
+
+
+def test_auto_test_honours_configured_max_repair():
+    """The repair loop must stop at the configured cap, not at 3."""
+    loop = _make_loop_with_mocked_cp(test_output="1 failed")
+    loop._max_repair = 5
+    for _ in range(5):
+        note = loop._auto_test_after_write("src/foo.py")
+    assert loop._repair_attempt == 5
+    assert "attempt 5/5" in note
+    assert loop._auto_test_after_write("src/foo.py") == ""  # silenced at the configured cap
 
 
 # ---------------------------------------------------------------------------

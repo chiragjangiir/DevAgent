@@ -140,6 +140,7 @@ class Worker:
                 budget=budget,
                 system_prompt=system_prompt,
                 max_iterations=self._max_iterations,
+                max_repair=self._cfg.agent.max_repair_iterations,
                 loop_detection=True,
             )
 

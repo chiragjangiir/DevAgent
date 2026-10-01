@@ -144,6 +144,7 @@ class AgentLoop:
         codeprism_client=None,        # CodePrismClient | None
         router=None,                  # MultiModelRouter | None
         max_iterations: int = 0,      # 0 = use _DEFAULT_MAX_ITERATIONS; pass cfg value
+        max_repair: int | None = None,  # None = use MAX_REPAIR; pass cfg.agent.max_repair_iterations
         loop_detection: bool = True,
         permission_mgr: PermissionManager | None = None,
         bare: bool = False,           # Phase 15: skip memory/overlay injection
@@ -159,6 +160,7 @@ class AgentLoop:
         self._router = router
         self._repair_attempt = 0  # consecutive test-repair attempts after a write
         self._max_iterations = max_iterations if max_iterations > 0 else _DEFAULT_MAX_ITERATIONS
+        self._max_repair = MAX_REPAIR if max_repair is None else max(0, max_repair)
         self._loop_detection = loop_detection
         self._permission_mgr = permission_mgr
         self._bare = bare
@@ -392,7 +394,7 @@ class AgentLoop:
         """
         if not self._cp_client or not file_path:
             return ""
-        if self._repair_attempt >= MAX_REPAIR:
+        if self._repair_attempt >= self._max_repair:
             return ""
 
         try:
@@ -417,10 +419,10 @@ class AgentLoop:
             return f"\n\n[auto_test] {test_file}: all tests pass."
 
         self._repair_attempt += 1
-        remaining = MAX_REPAIR - self._repair_attempt
+        remaining = self._max_repair - self._repair_attempt
         note = (
             f"\n\n[auto_test] Tests failed after your edit "
-            f"(attempt {self._repair_attempt}/{MAX_REPAIR}):\n"
+            f"(attempt {self._repair_attempt}/{self._max_repair}):\n"
             f"Test file: {test_file}\n"
             f"Output:\n{test_result[:600]}"
         )
