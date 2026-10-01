@@ -70,6 +70,7 @@ jobs:
       - name: Update LEADERBOARD.md on main
         run: |
           git checkout main
+          git pull --rebase origin main
           devagent bench leaderboard --remote --output LEADERBOARD.md
           git add LEADERBOARD.md
           git diff --cached --quiet \
