@@ -393,6 +393,91 @@ def test_orchestrator_run_yields_events(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# 6b. Orchestrator — worker limits come from config (agent.max_iterations /
+#     agent.max_repair_iterations), with explicit overrides still honoured
+# ---------------------------------------------------------------------------
+
+def test_orchestrator_worker_limits_default_to_config(tmp_path):
+    from devagent.agent.orchestrator import OrchestratorSession
+
+    cfg = _make_cfg()
+    cfg.agent.max_iterations = 42
+    cfg.agent.max_repair_iterations = 7
+
+    session = OrchestratorSession(cfg, tmp_path, max_workers=1)
+    assert session._worker_max_iters == 42
+    assert session._worker_max_repair == 7
+
+
+def test_orchestrator_worker_limits_accept_explicit_overrides(tmp_path):
+    from devagent.agent.orchestrator import OrchestratorSession
+
+    cfg = _make_cfg()  # config defaults are 50 / 3
+    session = OrchestratorSession(
+        cfg, tmp_path, max_workers=1,
+        worker_max_iterations=9, worker_max_repair=1,
+    )
+    assert session._worker_max_iters == 9
+    assert session._worker_max_repair == 1
+
+
+def test_orchestrator_threads_limits_into_workers(tmp_path):
+    from devagent.agent.orchestrator import OrchestratorSession
+    from devagent.agent.task_graph import TaskGraph, TaskNode
+    from devagent.agent.worker import WorkerResult
+    from devagent.session import store
+
+    db = tmp_path / "orch.db"
+    store.init_schema(db_path=db)
+    store.create_session("orch-thread", db_path=db)
+
+    cfg = _make_cfg()
+    cfg.agent.max_iterations = 50
+    cfg.agent.max_repair_iterations = 3
+    session = OrchestratorSession(cfg, tmp_path, max_workers=1)
+
+    graph = TaskGraph("orch-thread", db_path=db)
+    node = TaskNode.make("do it", "implementer")
+    graph.add(node)
+
+    captured: dict = {}
+
+    class _FakeWorker:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def run(self):
+            return WorkerResult(
+                task_id=node.id, worker_type="implementer",
+                success=True, output="ok",
+            )
+
+    with patch("devagent.agent.orchestrator.Worker", _FakeWorker):
+        results = session._run_wave([node], graph)
+
+    assert captured["max_iterations"] == 50
+    assert captured["max_repair"] == 3
+    assert results and results[0].success
+
+
+def test_worker_max_repair_defaults_to_cfg_and_accepts_override():
+    from devagent.agent.task_graph import TaskNode
+    from devagent.agent.worker import Worker
+
+    cfg = _make_cfg()
+    cfg.agent.max_repair_iterations = 4
+    node = TaskNode.make("x")
+
+    default = Worker(task=node, cfg=cfg, project_root=".", coordinator_session_id="s")
+    assert default._max_repair is None          # resolved from cfg when the loop is built
+
+    explicit = Worker(
+        task=node, cfg=cfg, project_root=".", coordinator_session_id="s", max_repair=2,
+    )
+    assert explicit._max_repair == 2
+
+
+# ---------------------------------------------------------------------------
 # 7. CLI command
 # ---------------------------------------------------------------------------
 

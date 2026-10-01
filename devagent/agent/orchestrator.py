@@ -38,7 +38,8 @@ class OrchestratorSession:
         project_root: str | Path,
         max_workers: int = 4,
         plan_mode: bool = False,
-        worker_max_iterations: int = 20,
+        worker_max_iterations: int | None = None,
+        worker_max_repair: int | None = None,
     ) -> None:
         from devagent.core.llm import LLMClient
 
@@ -46,7 +47,19 @@ class OrchestratorSession:
         self._project_root = str(Path(project_root).resolve())
         self._max_workers = max_workers
         self._plan_mode = plan_mode
-        self._worker_max_iters = worker_max_iterations
+        # Both worker limits default to their configured value (agent.*), so the
+        # orchestrator path honours the config the same way the interactive loop
+        # does; an explicit argument still overrides it.
+        self._worker_max_iters = (
+            cfg.agent.max_iterations
+            if worker_max_iterations is None
+            else worker_max_iterations
+        )
+        self._worker_max_repair = (
+            cfg.agent.max_repair_iterations
+            if worker_max_repair is None
+            else worker_max_repair
+        )
 
         mgr = SessionManager()
         self._session_id = mgr.new(
@@ -170,6 +183,7 @@ class OrchestratorSession:
                 project_root=self._project_root,
                 coordinator_session_id=self._session_id,
                 max_iterations=self._worker_max_iters,
+                max_repair=self._worker_max_repair,
                 dep_context=self._build_dep_context(task, graph),
             )
             for task in tasks

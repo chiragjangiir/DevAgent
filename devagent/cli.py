@@ -2420,7 +2420,14 @@ def orchestrate(
     plan: bool = typer.Option(False, "--plan", is_flag=True, help="Show decomposition plan before executing"),
     project: str | None = typer.Option(None, "--project", "-p", help="Project path"),
     model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
-    max_iter: int = typer.Option(20, "--max-iter", help="Max iterations per worker agent"),
+    max_iter: int | None = typer.Option(
+        None, "--max-iter",
+        help="Max iterations per worker agent (default: agent.max_iterations from config)",
+    ),
+    max_repair: int | None = typer.Option(
+        None, "--max-repair",
+        help="Max auto-repair attempts per worker (default: agent.max_repair_iterations from config)",
+    ),
 ) -> None:
     """Decompose a task and run multiple worker agents in parallel."""
     from devagent.agent.loop import ErrorEvent, FinalAnswerEvent, StatusEvent, ThinkingEvent
@@ -2448,6 +2455,7 @@ def orchestrate(
         max_workers=workers,
         plan_mode=plan,
         worker_max_iterations=max_iter,
+        worker_max_repair=max_repair,
     )
 
     exit_code = 0

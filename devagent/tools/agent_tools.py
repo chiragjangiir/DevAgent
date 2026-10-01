@@ -35,7 +35,7 @@ def register_agent_tools(
             cfg=cfg,
             project_root=project_root,
             coordinator_session_id="",
-            max_iterations=20,
+            max_iterations=cfg.agent.max_iterations,
         )
         result = worker.run()
 

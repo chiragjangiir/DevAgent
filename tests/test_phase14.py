@@ -116,6 +116,30 @@ class TestSpawnAgentRegistration:
 
         assert "Files modified" not in result
 
+    def test_spawn_uses_configured_max_iterations(self, tmp_path: Path) -> None:
+        """The sub-agent must honour agent.max_iterations, not a hardcoded 20."""
+        from devagent.agent.worker import WorkerResult
+        from devagent.tools.agent_tools import register_agent_tools
+
+        cfg = _make_cfg()
+        cfg.agent.max_iterations = 33
+
+        mock_result = WorkerResult(
+            task_id="abc", worker_type="implementer",
+            success=True, output="Done.", output_files=[],
+        )
+
+        with patch("devagent.tools.agent_tools.Worker") as MockWorker:
+            instance = MagicMock()
+            instance.run.return_value = mock_result
+            MockWorker.return_value = instance
+
+            reg = _make_registry(str(tmp_path))
+            register_agent_tools(reg, cfg, str(tmp_path))
+            reg.call("spawn_agent", {"task": "do it", "worker_type": "implementer"})
+
+        assert MockWorker.call_args.kwargs["max_iterations"] == 33
+
 
 # ---------------------------------------------------------------------------
 # read_peer_results tool

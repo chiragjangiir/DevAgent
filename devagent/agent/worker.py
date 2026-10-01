@@ -78,6 +78,7 @@ class Worker:
         project_root: str,
         coordinator_session_id: str,      # parent session for context
         max_iterations: int = 20,
+        max_repair: int | None = None,    # None = use cfg.agent.max_repair_iterations
         dep_context: str = "",            # Phase 14: completed dependency summaries
     ) -> None:
         self._task = task
@@ -85,6 +86,7 @@ class Worker:
         self._project_root = project_root
         self._coordinator_session_id = coordinator_session_id
         self._max_iterations = max_iterations
+        self._max_repair = max_repair
         self._dep_context = dep_context
         self._thread: threading.Thread | None = None
         self._result: WorkerResult | None = None
@@ -140,7 +142,11 @@ class Worker:
                 budget=budget,
                 system_prompt=system_prompt,
                 max_iterations=self._max_iterations,
-                max_repair=self._cfg.agent.max_repair_iterations,
+                max_repair=(
+                    self._max_repair
+                    if self._max_repair is not None
+                    else self._cfg.agent.max_repair_iterations
+                ),
                 loop_detection=True,
             )
 
