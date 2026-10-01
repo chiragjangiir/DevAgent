@@ -64,8 +64,13 @@ class ShellSession:
 
     def apply_side_effects(self, command: str) -> None:
         """Parse cd and export statements and update session state."""
-        # Handle `cd <path>` — last cd wins
-        for m in re.finditer(r"(?:^|;|&&|\|\|)\s*cd\s+([^\s;|&]+)", command):
+        # Handle `cd <path>` — last cd wins.
+        # Separators are the shell sequencing operators plus a newline: a `cd`
+        # on its own line of a multi-line command (heredoc / script joined with
+        # \n or \r\n) changes the shell's cwd just like one after `;`. Note this
+        # is deliberately not a character class including `|` — `cd` in a
+        # pipeline runs in a subshell and must not move the session cwd.
+        for m in re.finditer(r"(?:^|;|&&|\|\||\n)\s*cd\s+([^\s;|&]+)", command):
             target = m.group(1).strip().strip('"').strip("'")
             if target == "-":
                 continue
