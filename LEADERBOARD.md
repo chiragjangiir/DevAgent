@@ -7,7 +7,7 @@ Pass = oracle exits 0 after the agent loop. Higher is better.
 
 | Rank | Model | Provider | Best Score | Latest Score | Latest Run | Runs | Avg Time |
 |------|-------|----------|------------|--------------|------------|------|----------|
-| 1 | `unknown` | unknown | **4/24 (17%)** | 4/24 (17%) | 2026-10-01 | 37 | 0.5s |
+| 1 | `unknown` | unknown | **4/24 (17%)** | 4/24 (17%) | 2026-10-01 | 39 | 0.5s |
 
 ---
 
