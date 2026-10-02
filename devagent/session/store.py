@@ -192,9 +192,21 @@ def list_sessions_by_project(project: str, limit: int = 50, db_path: Path | None
 
 
 def delete_session(session_id: str, db_path: Path | None = None) -> None:
+    """Delete a session and every row that belongs to it.
+
+    Every table that carries a ``session_id`` is purged, not just the two the
+    original implementation happened to name. ``task_graph`` and
+    ``file_locks`` have no ``ON DELETE CASCADE`` (and SQLite does not enforce
+    foreign keys at all unless ``PRAGMA foreign_keys=ON`` is set, which
+    ``_conn`` does not do), so rows left behind here are unreachable orphans
+    that would never be cleaned up. Children are deleted before the parent row
+    so the order is correct if the pragma is ever enabled.
+    """
     with _conn(db_path) as conn:
         conn.execute("DELETE FROM events WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM memory_items WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM task_graph WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM file_locks WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
 
