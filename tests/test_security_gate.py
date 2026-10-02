@@ -38,6 +38,7 @@ def _wrap(
     confirm_fn=None,
     handler_result: str = "ok: file written",
     project_root: str = "/tmp",
+    extra_dirs: list | None = None,
 ):
     """Build a wrapped handler under test."""
     from devagent.tools.security_gate import wrap_write_with_security
@@ -52,6 +53,7 @@ def _wrap(
         "write",
         security_log=log,
         confirm_fn=confirm_fn,
+        extra_dirs=extra_dirs,
     )
     return wrapped, handler, client, log
 
@@ -216,3 +218,110 @@ def test_format_security_report_with_events():
     assert "1" in out
     assert "a.py" in out
     assert "b.py" in out
+
+
+# ---------------------------------------------------------------------------
+# Containment — the gate must not check a file outside the project
+# ---------------------------------------------------------------------------
+
+def test_traversal_path_is_blocked(tmp_path):
+    """`../` escapes the root, so the checks must not run at all."""
+    project = tmp_path / "project"
+    project.mkdir()
+    wrapped, handler, client, log = _wrap(project_root=str(project))
+
+    result = wrapped({"path": "../../etc/passwd", "content": "x"})
+
+    assert "security_block" in result
+    handler.assert_not_called()          # the write itself never runs
+    client.scan_diff.assert_not_called()  # and no scan of the wrong file
+    assert [e["action"] for e in log] == ["BLOCK"]
+
+
+def test_absolute_path_outside_root_is_blocked(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "elsewhere.txt"
+    wrapped, handler, client, _log = _wrap(project_root=str(project))
+
+    result = wrapped({"path": str(outside), "content": "x"})
+
+    assert "security_block" in result
+    handler.assert_not_called()
+    client.scan_diff.assert_not_called()
+
+
+def test_sibling_dir_sharing_a_name_prefix_is_blocked(tmp_path):
+    """`project-other` is not inside `project` — a string prefix says it is."""
+    project = tmp_path / "project"
+    project.mkdir()
+    sibling = tmp_path / "project-other"
+    sibling.mkdir()
+    wrapped, handler, _, _ = _wrap(project_root=str(project))
+
+    result = wrapped({"path": str(sibling / "file.py"), "content": "x"})
+
+    assert "security_block" in result
+    handler.assert_not_called()
+
+
+def test_absolute_path_inside_root_is_allowed(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    wrapped, handler, _, _ = _wrap(project_root=str(project))
+
+    result = wrapped({"path": str(project / "a.py"), "content": "x"})
+
+    assert "security_block" not in result
+    handler.assert_called_once()
+
+
+def test_relative_path_inside_root_is_allowed(tmp_path):
+    project = tmp_path / "project"
+    (project / "pkg").mkdir(parents=True)
+    wrapped, handler, _, _ = _wrap(project_root=str(project))
+
+    result = wrapped({"path": "pkg/mod.py", "content": "x"})
+
+    assert "security_block" not in result
+    handler.assert_called_once()
+
+
+def test_symlink_escaping_the_root_is_blocked(tmp_path):
+    """`.resolve()` follows the link, so containment sees the real location."""
+    import os
+
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = project / "link"
+    try:
+        os.symlink(outside, link, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - needs a privilege on Windows
+        import pytest
+        pytest.skip("symlink creation not permitted in this environment")
+
+    wrapped, handler, _, _ = _wrap(project_root=str(project))
+    result = wrapped({"path": "link/secret.txt", "content": "x"})
+
+    assert "security_block" in result
+    handler.assert_not_called()
+
+
+def test_extra_dir_is_allowed_only_when_declared(tmp_path):
+    """The gate must agree with the write tool's own extra_dirs."""
+    project = tmp_path / "project"
+    project.mkdir()
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    target = {"path": str(extra / "out.txt"), "content": "x"}
+
+    undeclared, h1, _, _ = _wrap(project_root=str(project))
+    assert "security_block" in undeclared(target)
+    h1.assert_not_called()
+
+    declared, h2, _, _ = _wrap(project_root=str(project), extra_dirs=[str(extra)])
+    assert "security_block" not in declared(target)
+    h2.assert_called_once()
+

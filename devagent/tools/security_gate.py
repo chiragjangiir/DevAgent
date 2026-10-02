@@ -22,6 +22,11 @@ from pathlib import Path
 
 from devagent.codeprism.client import CodePrismClient
 
+# The gate resolves the same path the write tools do, through the same rule:
+# a second copy of a containment test is a copy that can disagree with the one
+# that actually performs the write.
+from devagent.tools.file_tools import _safe_resolve
+
 # Files that trigger CVE dependency scanning
 _DEP_FILES = re.compile(
     r"(requirements.*\.txt|setup\.py|setup\.cfg|pyproject\.toml"
@@ -89,14 +94,39 @@ def wrap_write_with_security(
     operation: str,                              # "write" | "edit"
     security_log: list | None = None,           # caller-owned list, appended in place
     confirm_fn: Callable[[str], bool] | None = None,  # None = auto-allow WARN
+    extra_dirs: list[str] | None = None,        # the same dirs the write tools were given
 ) -> Callable[[dict], str]:
-    """Return a new handler that runs security checks before calling the original."""
+    """Return a new handler that runs security checks before calling the original.
+
+    extra_dirs: directories the underlying write tool may write to outside
+                project_root. Pass the same list the registry received, or the
+                gate would refuse paths the tool itself allows.
+    """
 
     log = security_log if security_log is not None else []
+    extra_roots = [Path(d).resolve() for d in (extra_dirs or [])]
 
     def secured_handler(args: dict) -> str:
         rel_path = args.get("path", "")
-        abs_path = (Path(project_root) / rel_path).resolve()
+        # ── 0. Containment ───────────────────────────────────────────
+        # Every check below runs against *this* path, so an escaping path has
+        # to be refused here rather than scanned. `Path(root) / "../../etc/passwd"`
+        # does not raise, it resolves outside the root: the impact estimate and
+        # the CVE scan would then describe a file outside the project, and a
+        # BLOCK/WARN verdict would be about the wrong file.
+        try:
+            abs_path = _safe_resolve(project_root, rel_path, extra_roots)
+        except ValueError as exc:
+            log.append({
+                "action": "BLOCK",
+                "file": rel_path,
+                "reasons": str(exc),
+            })
+            return (
+                f"[security_block] Write to {rel_path} blocked by security gate.\n"
+                f"Issues: {exc}\n"
+                "Fix the security issues and try again."
+            )
         original_content = _read_safe(abs_path)
 
         # ── Reconstruct proposed content for diff ────────────────────

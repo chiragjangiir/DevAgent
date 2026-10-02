@@ -135,6 +135,7 @@ def build_registry(
                     op.split("_")[0],
                     security_log=security_log,
                     confirm_fn=confirm_fn,
+                    extra_dirs=extra_dirs,
                 )
 
     if github_token:

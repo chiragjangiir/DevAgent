@@ -25,6 +25,16 @@ class TestSafeResolveExtraDirs:
         with pytest.raises(ValueError):
             _safe_resolve(str(tmp_path), "../../../etc/passwd")
 
+    def test_sibling_sharing_a_name_prefix_raises(self, tmp_path) -> None:
+        """Containment is not a string prefix: `proj-other` is not inside `proj`."""
+        import pytest
+        project = tmp_path / "proj"
+        project.mkdir()
+        sibling = tmp_path / "proj-other"
+        sibling.mkdir()
+        with pytest.raises(ValueError):
+            _safe_resolve(str(project), str(sibling / "f.txt"))
+
     def test_extra_roots_none_equals_default(self, tmp_path) -> None:
         a = _safe_resolve(str(tmp_path), "f.txt", None)
         b = _safe_resolve(str(tmp_path), "f.txt")

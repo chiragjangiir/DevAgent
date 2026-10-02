@@ -94,8 +94,15 @@ registry._handlers["my_write_tool"] = wrap_write_with_security(
     operation="write",
     security_log=security_log,
     confirm_fn=confirm_fn,
+    extra_dirs=extra_dirs,
 )
 ```
+
+The gate resolves the path through the same rule your write tool uses and refuses
+anything outside `project_root` (or `extra_dirs`) with a BLOCK, *before* any
+impact or CVE check runs. So `extra_dirs` must be the same list you gave the
+write tool: omit it and the gate will block legitimate writes to those
+directories, because as far as it can tell they escape the project.
 
 ## Parameters schema tips
 

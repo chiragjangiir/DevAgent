@@ -19,16 +19,27 @@ from devagent.tools.registry import ToolRegistry
 _DIFF_SEP = "\n---diff---\n"
 
 
+def _within_roots(target: Path, roots: list[Path]) -> bool:
+    """True when *target* is one of *roots* or sits inside one of them.
+
+    A string prefix is not a containment test. ``/srv/project-other`` starts
+    with ``/srv/project`` without being inside it, so the old
+    ``str(target).startswith(str(root))`` spelling admitted a sibling whose
+    name merely began with an allowed root's name.
+    """
+    return any(target.is_relative_to(root) for root in roots)
+
+
 def _safe_resolve(project_root: str, path: str, extra_roots: list[Path] | None = None) -> Path:
     """Resolve path relative to project_root (or any extra_roots); raise ValueError on traversal."""
     main_root = Path(project_root).resolve()
-    target = (main_root / path).resolve()
     allowed_roots = [main_root] + (extra_roots or [])
-    if any(str(target).startswith(str(r)) for r in allowed_roots):
+    target = (main_root / path).resolve()
+    if _within_roots(target, allowed_roots):
         return target
     # Try resolving as absolute path within an extra root
     abs_target = Path(path).resolve()
-    if any(str(abs_target).startswith(str(r)) for r in allowed_roots):
+    if _within_roots(abs_target, allowed_roots):
         return abs_target
     raise ValueError(f"Path {path!r} escapes project root and all extra dirs")
 
