@@ -11,11 +11,14 @@ the LLM is forced to produce a machine-readable task list rather than free text.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from devagent.agent.task_graph import TaskGraph, TaskNode, WorkerType
 from devagent.core.llm import AgentMessage, LLMClient, ToolDef
+
+logger = logging.getLogger(__name__)
 
 _DECOMPOSE_SYSTEM = """\
 You are a task coordinator for a multi-agent AI coding team.
@@ -139,7 +142,10 @@ def decompose_task(
                 return DecomposedTask(original_task=task, nodes=nodes)
 
     except Exception:
-        pass
+        logger.warning(
+            "decompose_task: LLM call failed, falling back to single task",
+            exc_info=True,
+        )
 
     # Fallback: single implementer task
     return DecomposedTask(
@@ -174,6 +180,10 @@ def synthesise_results(llm: LLMClient, task: str, task_graph: TaskGraph) -> str:
         response = llm.complete_with_tools(messages, tools=[])
         return response.content.strip() or task_graph.summary()
     except Exception:
+        logger.warning(
+            "synthesise_results: LLM call failed, returning graph summary",
+            exc_info=True,
+        )
         return task_graph.summary()
 
 

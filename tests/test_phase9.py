@@ -261,6 +261,30 @@ def test_decompose_task_fallback_on_llm_error():
     assert len(result.nodes) == 1  # single fallback task
 
 
+def test_decompose_task_fallback_on_llm_error_logs_warning(caplog):
+    import logging
+
+    from devagent.agent.coordinator import decompose_task
+
+    mock = MagicMock()
+    mock.cfg = MagicMock()
+    mock.cfg.provider = "ollama"
+    mock.cfg.model = "qwen2.5-coder:7b"
+    mock.complete_with_tools.side_effect = RuntimeError("network error")
+    with caplog.at_level(logging.WARNING, logger="devagent.agent.coordinator"):
+        result = decompose_task(mock, "task", "/project")
+
+    assert len(result.nodes) == 1
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+        and "decompose_task: LLM call failed, falling back to single task" in r.message
+    ]
+    assert len(warnings) == 1
+    assert warnings[0].exc_info is not None
+
+
 def test_decompose_task_safe_worker_type():
     from devagent.agent.coordinator import decompose_task
     llm = _make_llm_mock(
@@ -292,6 +316,37 @@ def test_synthesise_results_calls_llm(tmp_path):
     llm = _make_llm_mock(content="## Summary\n- Implemented auth.py")
     summary = synthesise_results(llm, "add auth", graph)
     assert len(summary) > 0
+
+
+def test_synthesise_results_fallback_on_llm_error_logs_warning(caplog, tmp_path):
+    import logging
+
+    from devagent.agent.coordinator import synthesise_results
+    from devagent.agent.task_graph import TaskGraph, TaskNode
+    from devagent.session import store
+
+    db = tmp_path / "t.db"
+    store.init_schema(db_path=db)
+    store.create_session("synth-sess-err", db_path=db)
+
+    graph = TaskGraph("synth-sess-err", db_path=db)
+    n = TaskNode.make("impl thing")
+    graph.add(n)
+
+    mock = MagicMock()
+    mock.complete_with_tools.side_effect = RuntimeError("synthesis error")
+    with caplog.at_level(logging.WARNING, logger="devagent.agent.coordinator"):
+        summary = synthesise_results(mock, "task", graph)
+
+    assert len(summary) > 0
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+        and "synthesise_results: LLM call failed, returning graph summary" in r.message
+    ]
+    assert len(warnings) == 1
+    assert warnings[0].exc_info is not None
 
 
 # ---------------------------------------------------------------------------
