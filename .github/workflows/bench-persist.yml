@@ -50,11 +50,13 @@ jobs:
             exit 0
           fi
 
-          # Switch to bench-results branch, creating it as an orphan if it does not exist
-          git fetch origin bench-results:bench-results 2>/dev/null \
-            || git checkout --orphan bench-results
-
-          git checkout bench-results 2>/dev/null || true
+          # Switch to bench-results branch, creating it as an orphan if it does not exist.
+          # Fetch first so we have the latest remote state before we commit.
+          if git fetch origin bench-results:bench-results 2>/dev/null; then
+            git checkout bench-results
+          else
+            git checkout --orphan bench-results
+          fi
 
           # Copy each result file into the branch root
           for RESULT in $RESULTS; do
@@ -65,6 +67,9 @@ jobs:
 
           git commit -m "ci: bench results $(date -u +%Y%m%d_%H%M%S) [skip ci]" \
             || echo "Nothing to commit"
+
+          # Rebase against any concurrent pushes that landed since our fetch, then push.
+          git pull --rebase origin bench-results 2>/dev/null || true
           git push origin bench-results
 
       - name: Update LEADERBOARD.md on main
